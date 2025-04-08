@@ -1,14 +1,19 @@
-import { APIGatewaySimpleAuthorizerResult, APIGatewayRequestAuthorizerEventV2 } from "aws-lambda";
+import { APIGatewaySimpleAuthorizerWithContextResult, APIGatewayRequestAuthorizerEventV2 } from "aws-lambda";
 import { verify } from "hono/jwt";
-export const handler = async (event: APIGatewayRequestAuthorizerEventV2): Promise<APIGatewaySimpleAuthorizerResult> => {
+type context = {
+    role?: string
+}
+export const handler = async (event: APIGatewayRequestAuthorizerEventV2): Promise<APIGatewaySimpleAuthorizerWithContextResult<context>> => {
     const decodedToken = await verify(event.headers?.authorization as string, process.env.JWTSecret as string)
     if (decodedToken.role === 'admin') {
         return {
             isAuthorized: true,
+            context: { role: decodedToken.role }
         };
     }
     return {
-        isAuthorized: false
+        isAuthorized: false,
+        context: {}
     };
 }
 

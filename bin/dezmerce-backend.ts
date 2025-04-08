@@ -15,5 +15,6 @@ new DezmerceBackendStack(app, `DezmerceBackendStack-${process.env.STAGE}`, {
     certArn: process.env.SSL_CERT_ARN as string,
     JWTSecret: process.env.JWT_SECRET as string,
     stage: process.env.STAGE as string,
-    projectName: process.env.PROJECT_NAME as string
+    projectName: process.env.PROJECT_NAME as string,
+    dbTableName: process.env.DB_TABLE_NAME as string,
 });

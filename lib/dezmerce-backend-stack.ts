@@ -1,5 +1,6 @@
 import { Stack, CfnOutput, StackProps } from 'aws-cdk-lib'
 import { Construct } from 'constructs'
+import * as dynamodb from 'aws-cdk-lib/aws-dynamodb'
 import * as lambda from 'aws-cdk-lib/aws-lambda'
 import * as acm from 'aws-cdk-lib/aws-certificatemanager'
 import * as apigw2 from 'aws-cdk-lib/aws-apigatewayv2'
@@ -14,12 +15,39 @@ interface MyStackProps extends StackProps {
     JWTSecret: string;
     stage: string;
     projectName: string;
+    dbTableName: string;
 }
 export class DezmerceBackendStack extends Stack {
     constructor(scope: Construct, id: string, props: MyStackProps) {
         super(scope, id, props)
-        console.log(props.stage)
-        const lambdaDefs = [{
+
+        const adminLambdas = [{
+            name: 'admin-products',
+            entry: 'lambda/admin/products.ts',
+            route: '/admin/products',
+            methods: [apigw2.HttpMethod.POST],
+            environment: {
+               DB_TABLE_NAME: props.dbTableName 
+            },
+            permissions:{
+                db: "RW"
+            }
+        },
+        {
+            name: 'admin-products-id',
+            entry: 'lambda/admin/products.ts',
+            route: '/admin/products/{id}',
+            methods: [apigw2.HttpMethod.GET, apigw2.HttpMethod.DELETE, apigw2.HttpMethod.PATCH],
+            environment: {
+               DB_TABLE_NAME: props.dbTableName 
+            },
+            permissions:{
+                db: "RW"
+            }
+        },
+
+        ]
+        const userLambdas = [{
             name: 'signin',
             entry: 'lambda/signin.ts',
             route: '/signin',
@@ -28,13 +56,27 @@ export class DezmerceBackendStack extends Stack {
             },
             methods: [apigw2.HttpMethod.POST]
         },
-        {
-            name: 'for',
-            entry: 'lambda/for.ts',
-            route: '/for',
-            methods: [apigw2.HttpMethod.GET]
-        },
         ]
+
+
+        const table= new dynamodb.TableV2(this, `${props.domainName}-table`,{
+            tableName: props.dbTableName,
+            partitionKey:{
+                name: "pk",
+                type: dynamodb.AttributeType.STRING
+            },
+            sortKey:{
+                name: "sk",
+                type: dynamodb.AttributeType.STRING
+            },
+            localSecondaryIndexes:[
+                {
+                    indexName: "lsi",
+                    sortKey:{ name: 'sk', type: dynamodb.AttributeType.STRING}
+                }
+            ]
+        })
+
 
         const certificate = acm.Certificate.fromCertificateArn(this, `${props.domainName}-certificate`, props.certArn);
         const customDomain = new apigw2.DomainName(this, props.domainName, {
@@ -47,6 +89,8 @@ export class DezmerceBackendStack extends Stack {
                 mappingKey: props.stage,
             },
         })
+
+
         const authFn = new NodejsFunction(this, `authorizer-lambda`, {
             entry: 'lambda/authorizer.ts',
             handler: 'handler',
@@ -56,12 +100,13 @@ export class DezmerceBackendStack extends Stack {
                 JWTSecret: props.JWTSecret
             },
         })
-
         const authorizer = new HttpLambdaAuthorizer("admin-lambda-authorizer", authFn, {
             responseTypes: [HttpLambdaResponseType.SIMPLE],
         })
-        for (let i = 0; i < lambdaDefs.length; i++) {
-            const lambdaDef = lambdaDefs[i]
+
+
+        for (let i = 0; i < adminLambdas.length; i++) {
+            const lambdaDef = adminLambdas[i]
             const fn = new NodejsFunction(this, `${lambdaDef.name}-lambda`, {
                 entry: lambdaDef.entry,
                 handler: 'handler',
@@ -74,7 +119,26 @@ export class DezmerceBackendStack extends Stack {
                 path: lambdaDef.route,
                 methods: lambdaDef.methods,
                 integration,
-                authorizer: (lambdaDef.route === '/for') ? authorizer : undefined
+                authorizer
+            })
+           if(lambdaDef.permissions.db==="RW") table.grantReadWriteData(fn) 
+           if(lambdaDef.permissions.db==="R") table.grantReadData(fn) 
+
+        }
+        for (let i = 0; i < userLambdas.length; i++) {
+            const lambdaDef = userLambdas[i]
+            const fn = new NodejsFunction(this, `${lambdaDef.name}-lambda`, {
+                entry: lambdaDef.entry,
+                handler: 'handler',
+                runtime: lambda.Runtime.NODEJS_20_X,
+                depsLockFilePath: join(__dirname, "../bun.lock"),
+                environment: lambdaDef.environment
+            })
+            const integration = new HttpLambdaIntegration(`${lambdaDef.name}-integration`, fn)
+            httpApi.addRoutes({
+                path: lambdaDef.route,
+                methods: lambdaDef.methods,
+                integration,
             })
 
         }
