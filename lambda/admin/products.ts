@@ -18,7 +18,7 @@ const db = DynamoDBDocument.from(client)
 app.post('/admin/products', async (c) => {
     const body: Omit<Product, "id"> = await c.req.json()
     try {
-        await db.put({
+        const result = await db.put({
             TableName,
             Item: {
                 pk: "product",
@@ -32,27 +32,29 @@ app.post('/admin/products', async (c) => {
                 variants: body.variants,
                 info: body.info,
                 specs: body.specs
-            }
+            },
         })
+        if (result.$metadata.httpStatusCode !== 200) return c.text("Couldn't add product")
+        return c.text("Product Added")
     } catch (error: any) {
         throw new Error(error)
     }
-    return c.json(body)
 })
 app.delete('/admin/products/:id', async (c) => {
     const id = c.req.param('id').split("-")
     try {
-        await db.delete({
+        const result = await db.delete({
             TableName,
             Key: {
                 pk: id[0],
                 sk: id[1]
             }
         })
+        if (result.$metadata.httpStatusCode !== 200) return c.text("Couldn't delete product")
+        return c.text("Product Deleted")
     } catch (error: any) {
         throw new Error(error)
     }
-    return c.text("deleted")
 })
 
 export const handler = handle(app)
