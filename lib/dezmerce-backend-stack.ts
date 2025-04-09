@@ -1,4 +1,4 @@
-import { Stack, CfnOutput, StackProps } from 'aws-cdk-lib'
+import { Stack, CfnOutput, StackProps, aws_s3 as s3 } from 'aws-cdk-lib'
 import { Construct } from 'constructs'
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb'
 import * as lambda from 'aws-cdk-lib/aws-lambda'
@@ -16,21 +16,81 @@ interface MyStackProps extends StackProps {
     stage: string;
     projectName: string;
     dbTableName: string;
+    region: string;
 }
+
+type lambda = {
+    name: string,
+    entry: string,
+    route: string;
+    methods: apigw2.HttpMethod[],
+    environment?: {
+        [key: string]: string;
+    },
+    permissions: {
+        db: "RW" | "R" | "W",
+        s3: "RW" | "R" | "W",
+    }
+}
+
 export class DezmerceBackendStack extends Stack {
     constructor(scope: Construct, id: string, props: MyStackProps) {
         super(scope, id, props)
 
-        const adminLambdas = [{
+        const table = new dynamodb.TableV2(this, `${props.projectName}-table`, {
+            tableName: props.dbTableName,
+            partitionKey: {
+                name: "pk",
+                type: dynamodb.AttributeType.STRING
+            },
+            sortKey: {
+                name: "sk",
+                type: dynamodb.AttributeType.STRING
+            },
+            localSecondaryIndexes: [
+                {
+                    indexName: "lsi",
+                    sortKey: { name: 'lsi', type: dynamodb.AttributeType.STRING }
+                }
+            ]
+        })
+        const bucket = new s3.Bucket(this, `${props.projectName}-bucket`, {
+            enforceSSL: true,
+            minimumTLSVersion: 1.2,
+            publicReadAccess: true,
+            blockPublicAccess: {
+                blockPublicAcls: false,
+                blockPublicPolicy: false,
+                ignorePublicAcls: false,
+                restrictPublicBuckets: false
+            }
+        })
+
+        const certificate = acm.Certificate.fromCertificateArn(this, `${props.domainName}-certificate`, props.certArn);
+        const customDomain = new apigw2.DomainName(this, props.domainName, {
+            domainName: props?.domainName,
+            certificate
+        })
+        const httpApi = new apigw2.HttpApi(this, `${props.projectName}-api`, {
+            defaultDomainMapping: {
+                domainName: customDomain,
+                mappingKey: props.stage,
+            },
+        })
+
+        const adminLambdas: lambda[] = [{
             name: 'admin-products',
             entry: 'lambda/admin/products.ts',
             route: '/admin/products',
             methods: [apigw2.HttpMethod.POST],
             environment: {
-               DB_TABLE_NAME: props.dbTableName 
+                DB_TABLE_NAME: props.dbTableName,
+                BUCKET_NAME: bucket.bucketName,
+                REGION: props.region
             },
-            permissions:{
-                db: "RW"
+            permissions: {
+                db: "RW",
+                s3: "W"
             }
         },
         {
@@ -39,10 +99,12 @@ export class DezmerceBackendStack extends Stack {
             route: '/admin/products/{id}',
             methods: [apigw2.HttpMethod.GET, apigw2.HttpMethod.DELETE, apigw2.HttpMethod.PATCH],
             environment: {
-               DB_TABLE_NAME: props.dbTableName 
+                DB_TABLE_NAME: props.dbTableName,
+                BUCKET_NAME: bucket.bucketName,
             },
-            permissions:{
-                db: "RW"
+            permissions: {
+                db: "RW",
+                s3: "RW"
             }
         },
 
@@ -59,39 +121,8 @@ export class DezmerceBackendStack extends Stack {
         ]
 
 
-        const table= new dynamodb.TableV2(this, `${props.domainName}-table`,{
-            tableName: props.dbTableName,
-            partitionKey:{
-                name: "pk",
-                type: dynamodb.AttributeType.STRING
-            },
-            sortKey:{
-                name: "sk",
-                type: dynamodb.AttributeType.STRING
-            },
-            localSecondaryIndexes:[
-                {
-                    indexName: "lsi",
-                    sortKey:{ name: 'sk', type: dynamodb.AttributeType.STRING}
-                }
-            ]
-        })
 
-
-        const certificate = acm.Certificate.fromCertificateArn(this, `${props.domainName}-certificate`, props.certArn);
-        const customDomain = new apigw2.DomainName(this, props.domainName, {
-            domainName: props?.domainName,
-            certificate
-        })
-        const httpApi = new apigw2.HttpApi(this, `${props.projectName}-api`, {
-            defaultDomainMapping: {
-                domainName: customDomain,
-                mappingKey: props.stage,
-            },
-        })
-
-
-        const authFn = new NodejsFunction(this, `authorizer-lambda`, {
+        const authFn = new NodejsFunction(this, `${props.projectName}-admin-authorizer-lambda`, {
             entry: 'lambda/authorizer.ts',
             handler: 'handler',
             runtime: lambda.Runtime.NODEJS_20_X,
@@ -100,41 +131,45 @@ export class DezmerceBackendStack extends Stack {
                 JWTSecret: props.JWTSecret
             },
         })
-        const authorizer = new HttpLambdaAuthorizer("admin-lambda-authorizer", authFn, {
+        const authorizer = new HttpLambdaAuthorizer(`${props.projectName}-admin-authorizer`, authFn, {
             responseTypes: [HttpLambdaResponseType.SIMPLE],
         })
 
 
         for (let i = 0; i < adminLambdas.length; i++) {
             const lambdaDef = adminLambdas[i]
-            const fn = new NodejsFunction(this, `${lambdaDef.name}-lambda`, {
+            const fn = new NodejsFunction(this, `${props.projectName}-${lambdaDef.name}-lambda`, {
                 entry: lambdaDef.entry,
                 handler: 'handler',
                 runtime: lambda.Runtime.NODEJS_20_X,
                 depsLockFilePath: join(__dirname, "../bun.lock"),
                 environment: lambdaDef.environment
             })
-            const integration = new HttpLambdaIntegration(`${lambdaDef.name}-integration`, fn)
+            const integration = new HttpLambdaIntegration(`${props.projectName}-${lambdaDef.name}-integration`, fn)
             httpApi.addRoutes({
                 path: lambdaDef.route,
                 methods: lambdaDef.methods,
                 integration,
                 authorizer
             })
-           if(lambdaDef.permissions.db==="RW") table.grantReadWriteData(fn) 
-           if(lambdaDef.permissions.db==="R") table.grantReadData(fn) 
+            if (lambdaDef.permissions.db === "RW") table.grantReadWriteData(fn)
+            else if (lambdaDef.permissions.db === "R") table.grantReadData(fn)
+            else if (lambdaDef.permissions.db === "W") table.grantWriteData(fn)
+
+            if (lambdaDef.permissions.s3 === "RW") bucket.grantReadWrite(fn)
+            else if (lambdaDef.permissions.s3 === "W") bucket.grantWrite(fn)
 
         }
         for (let i = 0; i < userLambdas.length; i++) {
             const lambdaDef = userLambdas[i]
-            const fn = new NodejsFunction(this, `${lambdaDef.name}-lambda`, {
+            const fn = new NodejsFunction(this, `${props.projectName}-${lambdaDef.name}-lambda`, {
                 entry: lambdaDef.entry,
                 handler: 'handler',
                 runtime: lambda.Runtime.NODEJS_20_X,
                 depsLockFilePath: join(__dirname, "../bun.lock"),
                 environment: lambdaDef.environment
             })
-            const integration = new HttpLambdaIntegration(`${lambdaDef.name}-integration`, fn)
+            const integration = new HttpLambdaIntegration(`${props.projectName}-${lambdaDef.name}-integration`, fn)
             httpApi.addRoutes({
                 path: lambdaDef.route,
                 methods: lambdaDef.methods,
