@@ -1,4 +1,4 @@
-import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { PutObjectCommand, S3Client, DeleteObjectsCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { DynamoDB } from "@aws-sdk/client-dynamodb";
 import { Hono } from 'hono'
@@ -20,19 +20,19 @@ const dbClient = new DynamoDB({})
 const db = DynamoDBDocument.from(dbClient)
 const s3Client = new S3Client({ region });
 
-const getPresignedUrl = (id:string, images: string[]) => {
-    const preSignedUrls= images.map((key)=> {
+const getPresignedUrl = (id: string, images: string[]) => {
+    const preSignedUrls = images.map((key) => {
         const command = new PutObjectCommand({ Bucket, Key: `products/${id}/${key}` });
         return getSignedUrl(s3Client, command, { expiresIn: 3600 });
     })
-    return Promise.all(preSignedUrls)
+    return preSignedUrls
 };
 
 app.post('/admin/products', async (c) => {
     const body: Omit<Product, "id"> = await c.req.json()
     try {
         const id = ulid();
-        const imageUrls= await getPresignedUrl(id, [body.thumbnail, ...body.images])
+        const imageUrls = await Promise.all(getPresignedUrl(id, [body.thumbnail, ...body.images]))
         const result = await db.put({
             TableName,
             Item: {
@@ -50,9 +50,9 @@ app.post('/admin/products', async (c) => {
             },
         })
         if (result.$metadata.httpStatusCode !== 200) {
-            return c.text("Couldn't add product")
+            return c.json({status: "error", message:"Couldn't add product"})
         }
-        return c.json({imageUrls})
+        return c.json({ imageUrls })
     } catch (error: any) {
         throw new Error(error)
     }
@@ -65,10 +65,20 @@ app.delete('/admin/products/:id', async (c) => {
             Key: {
                 pk: id[0],
                 sk: id[1]
-            }
+            },
+            ReturnValues: 'ALL_OLD'
         })
-        if (result.$metadata.httpStatusCode !== 200) return c.text("Couldn't delete product")
-        return c.text("Product Deleted")
+        if (result.$metadata.httpStatusCode !== 200) return c.json({status:"error", message: "DB error" }, 400)
+        const { $metadata } = await s3Client.send(
+            new DeleteObjectsCommand({
+                Bucket,
+                Delete: {
+                    Objects: [result.Attributes?.thumbnail, ...result.Attributes?.images].map((key: string) => ({ Key: `products/${id[1]}/${key}` })),
+                },
+            }),
+        );
+        if ($metadata.httpStatusCode !== 200) return c.json({status:"error", message: "S3 error"}, 400)
+            return c.json({status: "success", messages: "Product deleted"})
     } catch (error: any) {
         throw new Error(error)
     }
