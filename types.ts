@@ -1,8 +1,18 @@
 import { ApiGatewayRequestContextV2 } from "hono/aws-lambda";
+export type CartItem = {
+    id:string,
+    title: string,
+    image: string,
+    url: string,
+    price: number,
+    qty: number,
+}
+
 
 export type Product = {
     category: string;
     id: string;
+    gender:string;
     thumbnail: string;
     title: string;
     defaultDelivery: string;
@@ -16,10 +26,7 @@ export type Product = {
     }
 }
 
-export interface cartItem extends Product {
-    qty: number;
-}
-export interface AuthContext extends ApiGatewayRequestContextV2 {
+export interface AuthEvent extends ApiGatewayRequestContextV2 {
     requestContext: {
         authorizer: {
             lambda: {

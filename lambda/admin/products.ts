@@ -1,14 +1,14 @@
 import { PutObjectCommand, S3Client, DeleteObjectsCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { DynamoDB } from "@aws-sdk/client-dynamodb";
+import { DynamoDBDocument } from '@aws-sdk/lib-dynamodb'
 import { Hono } from 'hono'
 import { handle } from 'hono/aws-lambda'
-import { AuthContext, Product } from '../../types'
-import { DynamoDBDocument } from '@aws-sdk/lib-dynamodb'
+import { AuthEvent, Product } from '../../types'
 import { ulid } from "ulidx";
 
 type Bindings = {
-    event: AuthContext
+    event: AuthEvent
 }
 const TableName = process.env.DB_TABLE_NAME;
 const Bucket = process.env.BUCKET_NAME;
@@ -48,9 +48,9 @@ app.post('/admin/products', async (c) => {
         const result = await db.put({
             TableName,
             Item: {
-                pk: "product",
+                pk: body.category,
                 sk: id,
-                lsi: body.category,
+                lsi: body.gender,
                 title: body.title,
                 images: body.images,
                 thumbnail: body.thumbnail,
@@ -70,14 +70,14 @@ app.post('/admin/products', async (c) => {
         throw new Error(error)
     }
 })
-app.delete('/admin/products/:id', async (c) => {
-    const id = c.req.param('id').split("-")
+app.delete('/admin/products', async (c) => {
+    const {category, id}= await c.req.json()
     try {
         const result = await db.delete({
             TableName,
             Key: {
-                pk: id[0],
-                sk: id[1]
+                pk: category,
+                sk: id
             },
             ReturnValues: 'ALL_OLD'
         })
@@ -96,9 +96,7 @@ app.delete('/admin/products/:id', async (c) => {
         throw new Error(error)
     }
 })
-app.patch('/admin/products/:id', async (c) => {
-    const id = c.req.param('id').split("-")
-
+app.patch('/admin/products', async (c) => {
     const body = await c.req.json()
     const { UpdateExpression, ExpressionAttributeValues } = genUpdateExp(body)
     let imageUrls: string[] = []
@@ -106,8 +104,8 @@ app.patch('/admin/products/:id', async (c) => {
         const result = await db.update({
             TableName,
             Key: {
-                pk: id[0],
-                sk: id[1]
+                pk: body.category,
+                sk: body.id 
             },
             UpdateExpression: "set" + " " + UpdateExpression,
             ExpressionAttributeValues

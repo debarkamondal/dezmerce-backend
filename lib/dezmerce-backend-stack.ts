@@ -83,7 +83,7 @@ export class DezmerceBackendStack extends Stack {
             name: 'admin-products',
             entry: 'lambda/admin/products.ts',
             route: '/admin/products',
-            methods: [apigw2.HttpMethod.POST],
+            methods: [apigw2.HttpMethod.DELETE, apigw2.HttpMethod.PATCH, apigw2.HttpMethod.POST],
             environment: {
                 DB_TABLE_NAME: props.dbTableName,
                 BUCKET_NAME: bucket.bucketName,
@@ -93,21 +93,7 @@ export class DezmerceBackendStack extends Stack {
                 db: "RW",
                 s3: "W"
             }
-        },
-        {
-            name: 'admin-products-id',
-            entry: 'lambda/admin/products.ts',
-            route: '/admin/products/{id}',
-            methods: [apigw2.HttpMethod.DELETE, apigw2.HttpMethod.PATCH],
-            environment: {
-                DB_TABLE_NAME: props.dbTableName,
-                BUCKET_NAME: bucket.bucketName,
-            },
-            permissions: {
-                db: "RW",
-                s3: "RW"
-            }
-        },
+        }
 
         ]
 
@@ -151,7 +137,7 @@ export class DezmerceBackendStack extends Stack {
 
         }
         const userAuthFn = new NodejsFunction(this, `${props.projectName}-user-authorizer-lambda`, {
-            entry: 'lambda/admin/authorizer.ts',
+            entry: 'lambda/user/authorizer.ts',
             handler: 'handler',
             runtime: lambda.Runtime.NODEJS_20_X,
             depsLockFilePath: join(__dirname, "../bun.lock"),
@@ -181,8 +167,12 @@ export class DezmerceBackendStack extends Stack {
             entry: 'lambda/user/cart.ts',
             route: '/cart',
             environment: {
+                DB_TABLE_NAME: props.dbTableName,
             },
-            methods: [apigw2.HttpMethod.POST],
+            permissions:{
+                db: 'RW'
+            },
+            methods: [apigw2.HttpMethod.GET, apigw2.HttpMethod.POST],
             authorizer: userAuthorizer
         },
 

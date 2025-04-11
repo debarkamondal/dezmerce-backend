@@ -23,7 +23,7 @@ const fetchUser = async (email: string) => {
         })
         if (result.Item) return result.Item
         else {
-            const newUser = await db.put({
+            await db.put({
                 TableName,
                 Item: {
                     pk: 'user',
