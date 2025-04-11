@@ -26,11 +26,12 @@ type lambda = {
     methods: apigw2.HttpMethod[],
     environment?: {
         [key: string]: string;
+    } | undefined,
+    permissions?: {
+        db?: "RW" | "R" | "W",
+        s3?: "RW" | "R" | "W",
     },
-    permissions: {
-        db: "RW" | "R" | "W",
-        s3: "RW" | "R" | "W",
-    }
+    authorizer?: HttpLambdaAuthorizer
 }
 
 export class DezmerceBackendStack extends Stack {
@@ -97,7 +98,7 @@ export class DezmerceBackendStack extends Stack {
             name: 'admin-products-id',
             entry: 'lambda/admin/products.ts',
             route: '/admin/products/{id}',
-            methods: [apigw2.HttpMethod.GET, apigw2.HttpMethod.DELETE, apigw2.HttpMethod.PATCH],
+            methods: [apigw2.HttpMethod.DELETE, apigw2.HttpMethod.PATCH],
             environment: {
                 DB_TABLE_NAME: props.dbTableName,
                 BUCKET_NAME: bucket.bucketName,
@@ -109,21 +110,11 @@ export class DezmerceBackendStack extends Stack {
         },
 
         ]
-        const userLambdas = [{
-            name: 'signin',
-            entry: 'lambda/signin.ts',
-            route: '/signin',
-            environment: {
-                JWTSecret: props.JWTSecret
-            },
-            methods: [apigw2.HttpMethod.POST]
-        },
-        ]
 
 
 
-        const authFn = new NodejsFunction(this, `${props.projectName}-admin-authorizer-lambda`, {
-            entry: 'lambda/authorizer.ts',
+        const adminAuthFn = new NodejsFunction(this, `${props.projectName}-admin-authorizer-lambda`, {
+            entry: 'lambda/admin/authorizer.ts',
             handler: 'handler',
             runtime: lambda.Runtime.NODEJS_20_X,
             depsLockFilePath: join(__dirname, "../bun.lock"),
@@ -131,10 +122,9 @@ export class DezmerceBackendStack extends Stack {
                 JWTSecret: props.JWTSecret
             },
         })
-        const authorizer = new HttpLambdaAuthorizer(`${props.projectName}-admin-authorizer`, authFn, {
+        const adminAuthorizer = new HttpLambdaAuthorizer(`${props.projectName}-admin-authorizer`, adminAuthFn, {
             responseTypes: [HttpLambdaResponseType.SIMPLE],
         })
-
 
         for (let i = 0; i < adminLambdas.length; i++) {
             const lambdaDef = adminLambdas[i]
@@ -150,16 +140,53 @@ export class DezmerceBackendStack extends Stack {
                 path: lambdaDef.route,
                 methods: lambdaDef.methods,
                 integration,
-                authorizer
+                authorizer: adminAuthorizer
             })
-            if (lambdaDef.permissions.db === "RW") table.grantReadWriteData(fn)
-            else if (lambdaDef.permissions.db === "R") table.grantReadData(fn)
-            else if (lambdaDef.permissions.db === "W") table.grantWriteData(fn)
+            if (lambdaDef.permissions?.db === "RW") table.grantReadWriteData(fn)
+            else if (lambdaDef.permissions?.db === "R") table.grantReadData(fn)
+            else if (lambdaDef.permissions?.db === "W") table.grantWriteData(fn)
 
-            if (lambdaDef.permissions.s3 === "RW") bucket.grantReadWrite(fn)
-            else if (lambdaDef.permissions.s3 === "W") bucket.grantWrite(fn)
+            if (lambdaDef.permissions?.s3 === "RW") bucket.grantReadWrite(fn)
+            else if (lambdaDef.permissions?.s3 === "W") bucket.grantWrite(fn)
 
         }
+        const userAuthFn = new NodejsFunction(this, `${props.projectName}-user-authorizer-lambda`, {
+            entry: 'lambda/admin/authorizer.ts',
+            handler: 'handler',
+            runtime: lambda.Runtime.NODEJS_20_X,
+            depsLockFilePath: join(__dirname, "../bun.lock"),
+            environment: {
+                JWTSecret: props.JWTSecret
+            },
+        })
+        const userAuthorizer = new HttpLambdaAuthorizer(`${props.projectName}-user-authorizer`, userAuthFn, {
+            responseTypes: [HttpLambdaResponseType.SIMPLE],
+        })
+
+        const userLambdas: lambda[] = [{
+            name: 'signin',
+            entry: 'lambda/signin.ts',
+            route: '/signin',
+            environment: {
+                JWTSecret: props.JWTSecret,
+                DB_TABLE_NAME: props.dbTableName,
+            },
+            methods: [apigw2.HttpMethod.POST],
+            permissions: {
+                db: "RW"
+            }
+        },
+        {
+            name: 'cart',
+            entry: 'lambda/user/cart.ts',
+            route: '/cart',
+            environment: {
+            },
+            methods: [apigw2.HttpMethod.POST],
+            authorizer: userAuthorizer
+        },
+
+        ]
         for (let i = 0; i < userLambdas.length; i++) {
             const lambdaDef = userLambdas[i]
             const fn = new NodejsFunction(this, `${props.projectName}-${lambdaDef.name}-lambda`, {
@@ -167,14 +194,19 @@ export class DezmerceBackendStack extends Stack {
                 handler: 'handler',
                 runtime: lambda.Runtime.NODEJS_20_X,
                 depsLockFilePath: join(__dirname, "../bun.lock"),
-                environment: lambdaDef.environment
+                environment: lambdaDef.environment ?? undefined
             })
             const integration = new HttpLambdaIntegration(`${props.projectName}-${lambdaDef.name}-integration`, fn)
             httpApi.addRoutes({
                 path: lambdaDef.route,
                 methods: lambdaDef.methods,
                 integration,
+                authorizer: lambdaDef.authorizer ?? undefined
             })
+
+            if (lambdaDef.permissions?.db === "RW") table.grantReadWriteData(fn)
+            else if (lambdaDef.permissions?.db === "R") table.grantReadData(fn)
+            else if (lambdaDef.permissions?.db === "W") table.grantWriteData(fn)
 
         }
 
