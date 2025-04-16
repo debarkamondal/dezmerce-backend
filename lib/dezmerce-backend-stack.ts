@@ -59,6 +59,14 @@ export class DezmerceBackendStack extends Stack {
             enforceSSL: true,
             minimumTLSVersion: 1.2,
             publicReadAccess: true,
+            cors: [
+                {
+                    allowedHeaders: [ "*"],
+                    allowedOrigins: ["http://localhost:3000"],
+                    allowedMethods: [s3.HttpMethods.PUT, s3.HttpMethods.GET],
+                    maxAge: 300,
+                }
+            ],
             blockPublicAccess: {
                 blockPublicAcls: false,
                 blockPublicPolicy: false,
@@ -78,7 +86,6 @@ export class DezmerceBackendStack extends Stack {
                 mappingKey: props.stage,
             },
         })
-
         const adminLambdas: lambda[] = [{
             name: 'admin-products',
             entry: 'lambda/admin/products.ts',
@@ -169,7 +176,7 @@ export class DezmerceBackendStack extends Stack {
             environment: {
                 DB_TABLE_NAME: props.dbTableName,
             },
-            permissions:{
+            permissions: {
                 db: 'RW'
             },
             methods: [apigw2.HttpMethod.GET, apigw2.HttpMethod.POST],

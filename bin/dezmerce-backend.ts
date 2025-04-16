@@ -9,7 +9,7 @@ dotenv.config({ path: path.join(__dirname, '..', '.env') });
 new DezmerceBackendStack(app, `DezmerceBackendStack-${process.env.STAGE}`, {
     env: {
         account: '348649134109',
-        region: process.env.REGION as string
+        region: 'ap-south-1'
     },
     domainName: process.env.BACKEND_DOMAIN as string,
     certArn: process.env.SSL_CERT_ARN as string,

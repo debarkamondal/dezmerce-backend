@@ -20,7 +20,7 @@ export type Product = {
     ratings: Array<number>;
     images: Array<string>;
     variants: Array<Array<string>>;
-    info: string;
+    description: string;
     specs: {
         [key: string]: string;
     }

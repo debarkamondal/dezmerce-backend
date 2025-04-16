@@ -20,12 +20,9 @@ const dbClient = new DynamoDB({})
 const db = DynamoDBDocument.from(dbClient)
 const s3Client = new S3Client({ region });
 
-const getPresignedUrl = (id: string, images: string[]) => {
-    const preSignedUrls = images.map((key) => {
-        const command = new PutObjectCommand({ Bucket, Key: `products/${id}/${key}` });
+const getPresignedUrl = (id: string, image: string) => {
+        const command = new PutObjectCommand({ Bucket, Key: `products/${id}/${image}`, ContentType: "image/*" });
         return getSignedUrl(s3Client, command, { expiresIn: 3600 });
-    })
-    return preSignedUrls
 };
 
 const genUpdateExp = (body: any) => {
@@ -57,15 +54,16 @@ app.post('/admin/products', async (c) => {
                 price: body.price,
                 ratings: body.ratings,
                 variants: body.variants,
-                info: body.info,
+                description: body.description,
                 specs: body.specs
             },
         })
         if (result.$metadata.httpStatusCode !== 200) {
             return c.json({ status: "error", message: "DB error" })
         }
-        const imageUrls = await Promise.all(getPresignedUrl(id, [body.thumbnail, ...body.images]))
-        return c.json({ imageUrls })
+        const thumbnailUrl= await getPresignedUrl(id, body.thumbnail)
+        const imageUrls= body.images.map((image)=> getPresignedUrl(id, image))
+        return c.json({id, thumbnail: thumbnailUrl, imageUrls: await Promise.all(imageUrls)})
     } catch (error: any) {
         throw new Error(error)
     }
@@ -112,8 +110,9 @@ app.patch('/admin/products', async (c) => {
         }
         )
         if (result.$metadata.httpStatusCode !== 200) return c.json({ status: "error", message: "DB error" })
-        imageUrls = await Promise.all(getPresignedUrl(id[1], [body.thumbnail, ...body.images]))
-        return c.json({ imageUrls })
+        const thumbnailUrl= await getPresignedUrl(body.id, body.thumbnail)
+        const imageUrls= body.images.map((image:string)=> getPresignedUrl(body.id, image))
+        return c.json({ thumbnail: thumbnailUrl, imageUrls: await Promise.all(imageUrls)})
 
     } catch (error: any) {
         throw new Error(error)

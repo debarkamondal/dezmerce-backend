@@ -15,16 +15,15 @@ const app = new Hono<{ Bindings: Bindings }>()
 
 app.get('/cart', async (c) => {
     try {
-
         const cart = await db.get({
             TableName,
             Key: {
                 pk: 'cart',
                 sk: c.env.event.requestContext.authorizer.lambda.email
-            }
+            },
         })
-        if (!cart.Item) return c.text('cart empty')
-        return c.json(cart.Item)
+        if (!cart.Item) return c.json({items:[]})
+        return c.json(cart.Item.items)
     } catch (error) {
         return c.json({ status: 'error', message: error })
     }
@@ -42,7 +41,7 @@ app.post('/cart', async (c) => {
             },
         })
         if (cart.$metadata.httpStatusCode !== 200) throw new Error("couldn't update cart")
-        return c.json(cart.Attributes)
+        return c.json(cart)
     } catch (error: any) {
         return c.json({ status: 'error', message: error })
     }
