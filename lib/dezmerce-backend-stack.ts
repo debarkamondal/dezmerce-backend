@@ -61,7 +61,7 @@ export class DezmerceBackendStack extends Stack {
             publicReadAccess: true,
             cors: [
                 {
-                    allowedHeaders: [ "*"],
+                    allowedHeaders: ["*"],
                     allowedOrigins: ["http://localhost:3000"],
                     allowedMethods: [s3.HttpMethods.PUT, s3.HttpMethods.GET],
                     maxAge: 300,
@@ -168,6 +168,18 @@ export class DezmerceBackendStack extends Stack {
             permissions: {
                 db: "RW"
             }
+        },
+        {
+            name: 'user-products',
+            entry: 'lambda/user/products.ts',
+            route: '/products/{id}',
+            environment: {
+                DB_TABLE_NAME: props.dbTableName,
+            },
+            permissions: {
+                db: 'R'
+            },
+            methods: [apigw2.HttpMethod.GET],
         },
         {
             name: 'cart',

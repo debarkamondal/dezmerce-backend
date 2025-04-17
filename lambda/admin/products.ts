@@ -20,9 +20,9 @@ const dbClient = new DynamoDB({})
 const db = DynamoDBDocument.from(dbClient)
 const s3Client = new S3Client({ region });
 
-const getPresignedUrl = (id: string, image: string) => {
-        const command = new PutObjectCommand({ Bucket, Key: `products/${id}/${image}`, ContentType: "image/*" });
-        return getSignedUrl(s3Client, command, { expiresIn: 3600 });
+const getPresignedUrl = (key: string, image: string) => {
+    const command = new PutObjectCommand({ Bucket, Key: `products/${key}/${image}`, ContentType: "image/*" });
+    return getSignedUrl(s3Client, command, { expiresIn: 3600 });
 };
 
 const genUpdateExp = (body: any) => {
@@ -61,15 +61,15 @@ app.post('/admin/products', async (c) => {
         if (result.$metadata.httpStatusCode !== 200) {
             return c.json({ status: "error", message: "DB error" })
         }
-        const thumbnailUrl= await getPresignedUrl(id, body.thumbnail)
-        const imageUrls= body.images.map((image)=> getPresignedUrl(id, image))
-        return c.json({id, thumbnail: thumbnailUrl, imageUrls: await Promise.all(imageUrls)})
+        const thumbnailUrl = await getPresignedUrl(`${body.category}/${id}`, body.thumbnail)
+        const imageUrls = body.images.map((image) => getPresignedUrl(`${body.category}/${id}`, image))
+        return c.json({ id, thumbnail: thumbnailUrl, imageUrls: await Promise.all(imageUrls) })
     } catch (error: any) {
         throw new Error(error)
     }
 })
 app.delete('/admin/products', async (c) => {
-    const {category, id}= await c.req.json()
+    const { category, id } = await c.req.json()
     try {
         const result = await db.delete({
             TableName,
@@ -103,16 +103,16 @@ app.patch('/admin/products', async (c) => {
             TableName,
             Key: {
                 pk: body.category,
-                sk: body.id 
+                sk: body.id
             },
             UpdateExpression: "set" + " " + UpdateExpression,
             ExpressionAttributeValues
         }
         )
         if (result.$metadata.httpStatusCode !== 200) return c.json({ status: "error", message: "DB error" })
-        const thumbnailUrl= await getPresignedUrl(body.id, body.thumbnail)
-        const imageUrls= body.images.map((image:string)=> getPresignedUrl(body.id, image))
-        return c.json({ thumbnail: thumbnailUrl, imageUrls: await Promise.all(imageUrls)})
+        const thumbnailUrl = await getPresignedUrl(body.id, body.thumbnail)
+        const imageUrls = body.images.map((image: string) => getPresignedUrl(body.id, image))
+        return c.json({ thumbnail: thumbnailUrl, imageUrls: await Promise.all(imageUrls) })
 
     } catch (error: any) {
         throw new Error(error)
