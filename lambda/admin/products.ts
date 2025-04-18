@@ -45,8 +45,8 @@ app.post('/admin/products', async (c) => {
         const result = await db.put({
             TableName,
             Item: {
-                pk: body.category,
-                sk: id,
+                pk: 'product',
+                sk: body.category + "-" + id,
                 lsi: body.gender,
                 title: body.title,
                 images: body.images,
@@ -63,7 +63,7 @@ app.post('/admin/products', async (c) => {
         }
         const thumbnailUrl = await getPresignedUrl(`${body.category}/${id}`, body.thumbnail)
         const imageUrls = body.images.map((image) => getPresignedUrl(`${body.category}/${id}`, image))
-        return c.json({ id, thumbnail: thumbnailUrl, imageUrls: await Promise.all(imageUrls) })
+        return c.json({ id: body.category + "-" + id, thumbnail: thumbnailUrl, imageUrls: await Promise.all(imageUrls) })
     } catch (error: any) {
         throw new Error(error)
     }

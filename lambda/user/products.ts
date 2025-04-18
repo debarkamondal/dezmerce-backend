@@ -19,14 +19,14 @@ app.get('/products/:id', async (c) => {
         const {Item, ...result} = await db.get({
             TableName,
             Key: {
-                pk: c.req.param('id').split('-')[0],
-                sk: c.req.param('id').split('-')[1]
+                pk: 'product',
+                sk: c.req.param('id')
             },
         })
         if (!Item) return c.json({ status: "error", message: "No product found with given id" })
         return c.json({
-                category: Item.pk,
-                id: Item.sk,
+                category: Item.sk.split('-')[0],
+                id: Item.sk.split('-')[1],
                 gender: Item.gender,
                 title: Item.title,
                 images: Item.images,
