@@ -16,7 +16,7 @@ const app = new Hono<{ Bindings: Bindings }>()
 
 app.get('/products/:id', async (c) => {
     try {
-        const {Item, ...result} = await db.get({
+        const { Item } = await db.get({
             TableName,
             Key: {
                 pk: 'product',
@@ -25,19 +25,36 @@ app.get('/products/:id', async (c) => {
         })
         if (!Item) return c.json({ status: "error", message: "No product found with given id" })
         return c.json({
-                category: Item.sk.split('-')[0],
-                id: Item.sk.split('-')[1],
-                gender: Item.gender,
-                title: Item.title,
-                images: Item.images,
-                thumbnail: Item.thumbnail,
-                price: Item.price,
-                ratings: Item.ratings,
-                variants: Item.variants,
-                description: Item.description,
-                specs: Item.specs
+            category: Item.sk.split('-')[0],
+            id: Item.sk.split('-')[1],
+            gender: Item.gender,
+            title: Item.title,
+            images: Item.images,
+            thumbnail: Item.thumbnail,
+            price: Item.price,
+            ratings: Item.ratings,
+            variants: Item.variants,
+            description: Item.description,
+            specs: Item.specs
         })
     } catch (error) {
+        c.status(400)
+        return c.json({ status: 'error', message: error })
+    }
+})
+app.get('/products', async (c) => {
+    try {
+        const data = await db.query({
+            TableName,
+            KeyConditionExpression: 'pk = :pk',
+            ExpressionAttributeValues:{
+                ":pk": "product"
+            },
+            ProjectionExpression: "sk, thumbnail, price, title"
+        })
+        return c.json(data.Items)
+    } catch (error) {
+        c.status(400)
         return c.json({ status: 'error', message: error })
     }
 })

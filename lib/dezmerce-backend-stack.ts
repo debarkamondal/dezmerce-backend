@@ -170,6 +170,18 @@ export class DezmerceBackendStack extends Stack {
             }
         },
         {
+            name: 'user-getAll-products',
+            entry: 'lambda/user/products.ts',
+            route: '/products',
+            environment: {
+                DB_TABLE_NAME: props.dbTableName,
+            },
+            permissions: {
+                db: 'R'
+            },
+            methods: [apigw2.HttpMethod.GET],
+        },
+        {
             name: 'user-products',
             entry: 'lambda/user/products.ts',
             route: '/products/{id}',

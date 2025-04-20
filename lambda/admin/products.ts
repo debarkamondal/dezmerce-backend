@@ -97,7 +97,6 @@ app.delete('/admin/products', async (c) => {
 app.patch('/admin/products', async (c) => {
     const body = await c.req.json()
     const { UpdateExpression, ExpressionAttributeValues } = genUpdateExp(body)
-    let imageUrls: string[] = []
     try {
         const result = await db.update({
             TableName,
