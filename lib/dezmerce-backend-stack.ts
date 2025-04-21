@@ -85,6 +85,10 @@ export class DezmerceBackendStack extends Stack {
                 domainName: customDomain,
                 mappingKey: props.stage,
             },
+            corsPreflight: {
+                allowOrigins: ["http://localhost:3000"],
+                allowMethods: [apigw2.CorsHttpMethod.GET]
+            }
         })
         const adminLambdas: lambda[] = [{
             name: 'admin-products',
@@ -99,6 +103,18 @@ export class DezmerceBackendStack extends Stack {
             permissions: {
                 db: "RW",
                 s3: "W"
+            }
+        },
+        {
+            name: 'admin-categories',
+            entry: 'lambda/admin/categories.ts',
+            route: '/admin/categories',
+            methods: [apigw2.HttpMethod.GET, apigw2.HttpMethod.POST],
+            environment: {
+                DB_TABLE_NAME: props.dbTableName,
+            },
+            permissions: {
+                db: "RW",
             }
         }
 
