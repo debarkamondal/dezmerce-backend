@@ -13,7 +13,7 @@ const db = DynamoDBDocument.from(dbClient)
 
 const app = new Hono<{ Bindings: Bindings }>()
 
-app.post('/admin/categories', async (c) => {
+app.post('/categories', async (c) => {
     const body = await c.req.json()
     let res = await db.get({
         TableName,
@@ -53,7 +53,7 @@ app.post('/admin/categories', async (c) => {
     return c.json({ status: "error", message: "category creation failed" })
 })
 
-app.get('/admin/categories', async (c) => {
+app.get('/categories', async (c) => {
     const { Item } = await db.get({
         TableName,
         Key: {
