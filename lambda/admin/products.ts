@@ -69,12 +69,12 @@ app.post('/admin/products', async (c) => {
     }
 })
 app.delete('/admin/products', async (c) => {
-    const { category, id } = await c.req.json()
+    const { id } = await c.req.json()
     try {
         const result = await db.delete({
             TableName,
             Key: {
-                pk: category,
+                pk: "product",
                 sk: id
             },
             ReturnValues: 'ALL_OLD'
@@ -84,7 +84,7 @@ app.delete('/admin/products', async (c) => {
             new DeleteObjectsCommand({
                 Bucket,
                 Delete: {
-                    Objects: [result.Attributes?.thumbnail, ...result.Attributes?.images].map((key: string) => ({ Key: `products/${id[1]}/${key}` })),
+                    Objects: [result.Attributes?.thumbnail, ...result.Attributes?.images].map((key: string) => ({ Key: `products/${id.split("-")[0]}/${id.split("-")[1]}/${key}` })),
                 },
             }),
         );
@@ -101,8 +101,8 @@ app.patch('/admin/products', async (c) => {
         const result = await db.update({
             TableName,
             Key: {
-                pk: body.category,
-                sk: body.id
+                pk: "product",
+                sk: body.category + "-" + body.id
             },
             UpdateExpression: "set" + " " + UpdateExpression,
             ExpressionAttributeValues

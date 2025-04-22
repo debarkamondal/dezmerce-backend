@@ -105,18 +105,6 @@ export class DezmerceBackendStack extends Stack {
                 s3: "W"
             }
         },
-        {
-            name: 'admin-categories',
-            entry: 'lambda/admin/categories.ts',
-            route: '/admin/categories',
-            methods: [apigw2.HttpMethod.GET, apigw2.HttpMethod.POST],
-            environment: {
-                DB_TABLE_NAME: props.dbTableName,
-            },
-            permissions: {
-                db: "RW",
-            }
-        }
 
         ]
 
@@ -183,6 +171,18 @@ export class DezmerceBackendStack extends Stack {
             methods: [apigw2.HttpMethod.POST],
             permissions: {
                 db: "RW"
+            }
+        },
+        {
+            name: 'user-categories',
+            entry: 'lambda/user/categories.ts',
+            route: '/categories',
+            methods: [apigw2.HttpMethod.GET, apigw2.HttpMethod.POST],
+            environment: {
+                DB_TABLE_NAME: props.dbTableName,
+            },
+            permissions: {
+                db: "RW",
             }
         },
         {
