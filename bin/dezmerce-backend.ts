@@ -1,21 +1,42 @@
 #!/usr/bin/env node
-import * as cdk from 'aws-cdk-lib';
-import { DezmerceBackendStack } from '../lib/dezmerce-backend-stack';
+import { App } from 'aws-cdk-lib';
+import { InfrastructureStack } from '../lib/infra-stack';
+import { ApiStack } from '../lib/api-stack';
+import { SharedConfig } from '../lib/config';
 import * as dotenv from 'dotenv';
 import * as path from 'path';
 
-const app = new cdk.App();
+const app = new App();
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
-new DezmerceBackendStack(app, `DezmerceBackendStack-${process.env.STAGE}`, {
-    env: {
-        account: '348649134109',
-        region: 'ap-south-1'
-    },
-    domainName: process.env.BACKEND_DOMAIN as string,
-    certArn: process.env.SSL_CERT_ARN as string,
-    JWTSecret: process.env.JWT_SECRET as string,
-    stage: process.env.STAGE as string,
-    projectName: process.env.PROJECT_NAME as string,
-    dbTableName: process.env.DB_TABLE_NAME as string,
-    region: process.env.REGION as string
+
+// Define shared configuration
+const config: SharedConfig = {
+    domainName: process.env.DOMAIN_NAME || 'example.com',
+    certArn: process.env.CERT_ARN || 'arn:aws:acm:region:account:certificate/certificate-id',
+    JWTSecret: process.env.JWT_SECRET || 'your-secret',
+    stage: process.env.STAGE || 'dev',
+    projectName: process.env.PROJECT_NAME || 'dezmerceBackend',
+    region: process.env.REGION || 'us-east-1'
+};
+
+// Define environment for all stacks
+const env = {
+    account: process.env.CDK_DEFAULT_ACCOUNT || '348649134109',
+    region: config.region
+};
+
+// Create stacks
+const infraStack = new InfrastructureStack(app, `${config.projectName}-${config.stage}-infra`, {
+    config,
+    stackName: `${config.projectName}-${config.stage}-infra`,
+    env
 });
+const apiStack = new ApiStack(app, `${config.projectName}-${config.stage}-api`, {
+    config,
+    stackName: `${config.projectName}-${config.stage}-api`,
+    table: infraStack.table,
+    bucket: infraStack.bucket,
+    env
+});
+
+apiStack.addDependency(infraStack);
