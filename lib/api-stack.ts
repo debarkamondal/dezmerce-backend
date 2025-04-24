@@ -115,6 +115,19 @@ export class ApiStack extends Stack {
                 },
                 authorizer: this.adminAuthorizer
             },
+            {
+                name: 'admin-categories',
+                entry: 'lambda/admin/categories.ts',
+                route: '/admin/categories',
+                methods: [apigw2.HttpMethod.POST],
+                environment: {
+                    DB_TABLE_NAME: props.table.tableName,
+                },
+                permissions: {
+                    db: "RW" as const,
+                },
+                authorizer: this.adminAuthorizer
+            },
         ];
 
         //Define user lambdas
@@ -129,14 +142,14 @@ export class ApiStack extends Stack {
                 },
                 methods: [apigw2.HttpMethod.POST],
                 permissions: {
-                    db: "RW" as const
+                    db: "R" as const
                 }
             },
             {
                 name: 'user-categories',
                 entry: 'lambda/user/categories.ts',
                 route: '/categories',
-                methods: [apigw2.HttpMethod.GET, apigw2.HttpMethod.POST],
+                methods: [apigw2.HttpMethod.GET],
                 environment: {
                     DB_TABLE_NAME: props.table.tableName,
                 },
@@ -209,8 +222,7 @@ export class ApiStack extends Stack {
         // Outputs
         new CfnOutput(this, 'ApiUrl', { value: this.httpApi.url! });
         new CfnOutput(this, 'CNAME', { value: customDomain.regionalDomainName });
-        new CfnOutput(this, 'ApiDomainUrl', {
-            value: `https://${config.domainName}/${config.stage}`
-        });
+        new CfnOutput(this, 'ApiDomainUrl', { value: `https://${config.domainName}/${config.stage}` });
+            new CfnOutput(this, 'S3URL', {value: props.bucket.bucketRegionalDomainName})
     }
 }
