@@ -98,7 +98,7 @@ export class ApiStack extends Stack {
         })
 
         // Define admin lambdas
-        const adminLambdas = [
+        const adminLambdas: lambda[] = [
             {
                 name: 'admin-products',
                 entry: 'lambda/admin/products.ts',
@@ -142,7 +142,7 @@ export class ApiStack extends Stack {
                 },
                 methods: [apigw2.HttpMethod.POST],
                 permissions: {
-                    db: "R" as const
+                    db: "RW" as const
                 }
             },
             {
@@ -223,6 +223,6 @@ export class ApiStack extends Stack {
         new CfnOutput(this, 'ApiUrl', { value: this.httpApi.url! });
         new CfnOutput(this, 'CNAME', { value: customDomain.regionalDomainName });
         new CfnOutput(this, 'ApiDomainUrl', { value: `https://${config.domainName}/${config.stage}` });
-            new CfnOutput(this, 'S3URL', {value: props.bucket.bucketRegionalDomainName})
+        new CfnOutput(this, 'S3URL', { value: props.bucket.bucketRegionalDomainName })
     }
 }

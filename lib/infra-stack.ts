@@ -34,12 +34,13 @@ export class InfrastructureStack extends Stack {
                     sortKey: { name: 'lsi', type: dynamodb.AttributeType.STRING }
                 }
             ],
-            removalPolicy: config.stage === 'prod'? RemovalPolicy.RETAIN : RemovalPolicy.DESTROY
+            removalPolicy: config.stage === 'prod' ? RemovalPolicy.RETAIN : RemovalPolicy.DESTROY
         });
 
         // Create S3 bucket
         this.bucket = new s3.Bucket(this, `${config.projectName}-${config.stage}-bucket`, {
             enforceSSL: true,
+            removalPolicy: config.stage === 'prod' ? RemovalPolicy.RETAIN : RemovalPolicy.DESTROY,
             minimumTLSVersion: 1.2,
             publicReadAccess: true,
             cors: [
