@@ -2,7 +2,7 @@
 import { DynamoDB } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocument } from '@aws-sdk/lib-dynamodb'
 import { Hono } from "hono";
-import { LambdaEvent } from "hono/aws-lambda";
+import { handle, LambdaEvent } from "hono/aws-lambda";
 
 const dbClient = new DynamoDB({})
 const db = DynamoDBDocument.from(dbClient)
@@ -50,3 +50,5 @@ app.post('/admin/categories', async (c) => {
     c.status(500)
     return c.json({ status: "error", message: "category creation failed" })
 })
+
+export const handler = handle(app)
