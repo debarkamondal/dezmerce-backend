@@ -122,9 +122,11 @@ export class ApiStack extends Stack {
                 methods: [apigw2.HttpMethod.POST],
                 environment: {
                     DB_TABLE_NAME: props.table.tableName,
+                    BUCKET_NAME: bucket.bucketName
                 },
                 permissions: {
                     db: "RW" as const,
+                    s3: "W" as const
                 },
                 authorizer: this.adminAuthorizer
             },

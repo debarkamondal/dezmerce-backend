@@ -1,11 +1,11 @@
-import { PutObjectCommand, S3Client, DeleteObjectsCommand } from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { S3Client, DeleteObjectsCommand } from "@aws-sdk/client-s3";
 import { DynamoDB } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocument } from '@aws-sdk/lib-dynamodb'
 import { Hono } from 'hono'
 import { handle } from 'hono/aws-lambda'
 import { AuthEvent, Product } from '../../types'
 import { ulid } from "ulidx";
+import { getPresignedUrl } from "../utils/lib";
 
 type Bindings = {
     event: AuthEvent
@@ -20,10 +20,6 @@ const dbClient = new DynamoDB({})
 const db = DynamoDBDocument.from(dbClient)
 const s3Client = new S3Client({ region });
 
-const getPresignedUrl = (key: string, image: string) => {
-    const command = new PutObjectCommand({ Bucket, Key: `products/${key}/${image}`, ContentType: "image/*" });
-    return getSignedUrl(s3Client, command, { expiresIn: 3600 });
-};
 
 const genUpdateExp = (body: any) => {
     let updateExp: string[] = [];
@@ -61,8 +57,8 @@ app.post('/admin/products', async (c) => {
         if (result.$metadata.httpStatusCode !== 200) {
             return c.json({ status: "error", message: "DB error" })
         }
-        const thumbnailUrl = await getPresignedUrl(`${body.category}/${id}`, body.thumbnail)
-        const imageUrls = body.images.map((image) => getPresignedUrl(`${body.category}/${id}`, image))
+        const thumbnailUrl = await getPresignedUrl(`products/${body.category}/${id}/${body.thumbnail}`)
+        const imageUrls = body.images.map((image) => getPresignedUrl(`products/${body.category}/${id}/${image}`))
         return c.json({ id: body.category + "-" + id, thumbnail: thumbnailUrl, imageUrls: await Promise.all(imageUrls) })
     } catch (error: any) {
         throw new Error(error)
