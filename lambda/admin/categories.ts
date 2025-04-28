@@ -15,7 +15,8 @@ type Bindings = {
 const app = new Hono<{ Bindings: Bindings }>()
 app.post('/admin/categories', async (c) => {
     const body = await c.req.json()
-    const img = `${body.category}.${body.image.split(".")[body.image.split(".").length - 1]}`
+    // creates image = {category}.{file-extention}
+    const image = `${body.category}.${body.image.split(".")[body.image.split(".").length - 1]}`
     let url = ""
     let res = await db.get({
         TableName,
@@ -32,10 +33,10 @@ app.post('/admin/categories', async (c) => {
             Item: {
                 pk: 'categories',
                 sk: 'metadata',
-                [body.category]: { qty: 0, img},
+                [body.category]: { qty: 0, image},
             }
         })
-        url = await getPresignedUrl(`categories/${img}`)
+        url = await getPresignedUrl(`categories/${image}`)
         return c.json({ imgUrl: url })
     }
     if (res.Item[body.category]) return c.json({ status: "error", message: "category already exists" })
@@ -43,7 +44,7 @@ app.post('/admin/categories', async (c) => {
         TableName,
         UpdateExpression: `set ${body.category} = :category`,
         ExpressionAttributeValues: {
-            ":category": { qty: 0, img}
+            ":category": { qty: 0, image}
         },
         Key: {
             pk: 'categories',
@@ -51,7 +52,7 @@ app.post('/admin/categories', async (c) => {
         },
     })
     if (res.$metadata.httpStatusCode === 200) {
-        url = await getPresignedUrl(`categories/${img}`)
+        url = await getPresignedUrl(`categories/${image}`)
         return c.json({ imgUrl: url })
     }
     c.status(500)

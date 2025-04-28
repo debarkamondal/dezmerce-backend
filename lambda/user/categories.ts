@@ -22,6 +22,7 @@ app.get('/categories', async (c) => {
             sk: "metadata"
         }
     })
+    if(!Item) return c.json({status: 'error', message: 'no categories found'})
     return c.json(Item)
 })
 export const handler = handle(app)

@@ -41,8 +41,8 @@ app.post('/admin/products', async (c) => {
         const result = await db.put({
             TableName,
             Item: {
-                pk: 'product',
-                sk: body.category + "-" + id,
+                pk: body.category,
+                sk: id,
                 lsi: body.gender,
                 title: body.title,
                 images: body.images,
@@ -54,9 +54,31 @@ app.post('/admin/products', async (c) => {
                 specs: body.specs
             },
         })
-        if (result.$metadata.httpStatusCode !== 200) {
-            return c.json({ status: "error", message: "DB error" })
-        }
+        const categories = await db.get({
+            TableName,
+            Key: {
+                pk: 'categories',
+                sk: 'metadata',
+            },
+            ProjectionExpression: body.category
+        })
+        if(!categories.Item) return c.json({status:"error", message: "DB error"}) 
+        const res = await db.update({
+            TableName,
+            Key: {
+                pk: 'categories',
+                sk: 'metadata'
+            },
+            UpdateExpression: `set ${body.category} = :category`,
+            ExpressionAttributeValues: {
+                ":category": {
+                    ...categories.Item[body.category],
+                    qty: categories.Item[body.category].qty + 1
+                }
+            }
+        })
+        console.log(res)
+        if (res.$metadata.httpStatusCode !== 200) return c.json({ status: "error", message: "DB error" })
         const thumbnailUrl = await getPresignedUrl(`products/${body.category}/${id}/${body.thumbnail}`)
         const imageUrls = body.images.map((image) => getPresignedUrl(`products/${body.category}/${id}/${image}`))
         return c.json({ id: body.category + "-" + id, thumbnail: thumbnailUrl, imageUrls: await Promise.all(imageUrls) })
@@ -65,12 +87,12 @@ app.post('/admin/products', async (c) => {
     }
 })
 app.delete('/admin/products', async (c) => {
-    const { id } = await c.req.json()
+    const { category, id } = await c.req.json()
     try {
         const result = await db.delete({
             TableName,
             Key: {
-                pk: "product",
+                pk: category,
                 sk: id
             },
             ReturnValues: 'ALL_OLD'
@@ -105,8 +127,8 @@ app.patch('/admin/products', async (c) => {
         }
         )
         if (result.$metadata.httpStatusCode !== 200) return c.json({ status: "error", message: "DB error" })
-        const thumbnailUrl = await getPresignedUrl(body.id, body.thumbnail)
-        const imageUrls = body.images.map((image: string) => getPresignedUrl(body.id, image))
+        const thumbnailUrl = await getPresignedUrl(body.id)
+        const imageUrls = body.images.map((image: string) => getPresignedUrl(body.id))
         return c.json({ thumbnail: thumbnailUrl, imageUrls: await Promise.all(imageUrls) })
 
     } catch (error: any) {
