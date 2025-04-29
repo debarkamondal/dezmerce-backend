@@ -132,8 +132,8 @@ export class ApiStack extends Stack {
             },
         ];
 
-        //Define user lambdas
-        const userLambdas: lambda[] = [
+        const publicLambdas: lambda[] = [
+
             {
                 name: 'signin',
                 entry: 'lambda/signin.ts',
@@ -148,7 +148,7 @@ export class ApiStack extends Stack {
                 }
             },
             {
-                name: 'user-categories',
+                name: 'get-categories',
                 entry: 'lambda/user/categories.ts',
                 route: '/categories',
                 methods: [apigw2.HttpMethod.GET],
@@ -160,7 +160,19 @@ export class ApiStack extends Stack {
                 }
             },
             {
-                name: 'user-getAll-products',
+                name: 'get-category-products',
+                entry: 'lambda/user/categories.ts',
+                route: '/categories/{:category}',
+                methods: [apigw2.HttpMethod.GET],
+                environment: {
+                    DB_TABLE_NAME: props.table.tableName,
+                },
+                permissions: {
+                    db: "RW" as const,
+                }
+            },
+            {
+                name: 'getAll-products',
                 entry: 'lambda/user/products.ts',
                 route: '/products',
                 environment: {
@@ -172,7 +184,7 @@ export class ApiStack extends Stack {
                 methods: [apigw2.HttpMethod.GET],
             },
             {
-                name: 'user-products',
+                name: 'get-product',
                 entry: 'lambda/user/products.ts',
                 route: '/products/{id}',
                 environment: {
@@ -183,6 +195,9 @@ export class ApiStack extends Stack {
                 },
                 methods: [apigw2.HttpMethod.GET],
             },
+        ]
+        //Define user lambdas
+        const userLambdas: lambda[] = [
             {
                 name: 'cart',
                 entry: 'lambda/user/cart.ts',
@@ -211,6 +226,16 @@ export class ApiStack extends Stack {
             });
         });
 
+        publicLambdas.forEach(lambdaDef => {
+            new ApiLambdaConstructor(this, `${lambdaDef.name}-function`, {
+                ...lambdaDef,
+                projectName: config.projectName,
+                httpApi: this.httpApi,
+                table,
+                bucket,
+                stage: config.stage
+            });
+        });
         userLambdas.forEach(lambdaDef => {
             new ApiLambdaConstructor(this, `${lambdaDef.name}-function`, {
                 ...lambdaDef,

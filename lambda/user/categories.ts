@@ -22,7 +22,20 @@ app.get('/categories', async (c) => {
             sk: "metadata"
         }
     })
-    if(!Item) return c.json({status: 'error', message: 'no categories found'})
+    if (!Item) return c.json({ status: 'error', message: 'no categories found' })
     return c.json(Item)
+})
+
+app.get('/categories/:category', async (c) => {
+    const { Items } = await db.query({
+        TableName,
+        KeyConditionExpression: "pk = :category",
+        ExpressionAttributeValues: {
+            ":category": c.req.param("category"),
+        },
+        ProjectionExpression: "pk, sk, thumbnail, price, title" 
+    })
+    if (!Items) return c.json({ status: 'error', message: 'no categories found' })
+    return c.json(Items)
 })
 export const handler = handle(app)
