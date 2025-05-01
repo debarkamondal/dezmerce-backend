@@ -119,7 +119,7 @@ export class ApiStack extends Stack {
                 name: 'admin-categories',
                 entry: 'lambda/admin/categories.ts',
                 route: '/admin/categories',
-                methods: [apigw2.HttpMethod.POST],
+                methods: [apigw2.HttpMethod.POST, apigw2.HttpMethod.PATCH],
                 environment: {
                     DB_TABLE_NAME: props.table.tableName,
                     BUCKET_NAME: bucket.bucketName

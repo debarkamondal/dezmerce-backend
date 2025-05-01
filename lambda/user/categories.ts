@@ -33,7 +33,7 @@ app.get('/categories/:category', async (c) => {
         ExpressionAttributeValues: {
             ":category": c.req.param("category"),
         },
-        ProjectionExpression: "pk, sk, thumbnail, price, title" 
+        ProjectionExpression: "pk, sk, thumbnail, price, title"
     })
     if (!Items) return c.json({ status: 'error', message: 'no categories found' })
     return c.json(Items)
