@@ -1,33 +1,36 @@
-import { Hono } from "hono"
-import { handle } from "hono/aws-lambda"
+import { Hono } from "hono";
+import { handle } from "hono/aws-lambda";
 import { DynamoDB } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocument } from '@aws-sdk/lib-dynamodb'
+import { DynamoDBDocument } from "@aws-sdk/lib-dynamodb";
 import { AuthEvent } from "../../types";
 
 type Bindings = {
-  event: AuthEvent
-}
+  event: AuthEvent;
+};
 
-const dbClient = new DynamoDB({})
-const db = DynamoDBDocument.from(dbClient)
+const dbClient = new DynamoDB({});
+const db = DynamoDBDocument.from(dbClient);
 const TableName = process.env.DB_TABLE_NAME;
-const app = new Hono<{ Bindings: Bindings }>()
+const app = new Hono<{ Bindings: Bindings }>();
 
-
-app.get('/products/:id', async (c) => {
+app.get("/products/:id", async (c) => {
   try {
     const { Item } = await db.get({
       TableName,
       Key: {
-        pk: "products:" + c.req.param('id').split('-')[0],
-        sk: c.req.param('id').split('-')[1]
+        pk: "products:" + c.req.param("id").split("-")[0],
+        sk: c.req.param("id").split("-")[1],
       },
-    })
-    if (!Item) return c.json({ status: "error", message: "No product found with given id" })
+    });
+    if (!Item)
+      return c.json({
+        status: "error",
+        message: "No product found with given id",
+      });
     return c.json({
-      category: Item.pk,
+      category: Item.pk.split(":")[1],
       id: Item.sk,
-      gender: Item.gender,
+      gender: Item.lsi,
       title: Item.title,
       images: Item.images,
       thumbnail: Item.thumbnail,
@@ -35,29 +38,29 @@ app.get('/products/:id', async (c) => {
       ratings: Item.ratings,
       variants: Item.variants,
       description: Item.description,
-      specs: Item.specs
-    })
+      specs: Item.specs,
+    });
   } catch (error) {
-    c.status(400)
-    return c.json({ status: 'error', message: error })
+    c.status(400);
+    return c.json({ status: "error", message: error });
   }
-})
+});
 
 //FIX:This endpoint needs to be updated.
-app.get('/products', async (c) => {
+app.get("/products", async (c) => {
   try {
     const data = await db.query({
       TableName,
-      KeyConditionExpression: 'pk = :pk',
+      KeyConditionExpression: "pk = :pk",
       ExpressionAttributeValues: {
-        ":pk": "product"
+        ":pk": "product",
       },
-      ProjectionExpression: "sk, thumbnail, price, title"
-    })
-    return c.json(data.Items)
+      ProjectionExpression: "sk, thumbnail, price, title",
+    });
+    return c.json(data.Items);
   } catch (error) {
-    c.status(400)
-    return c.json({ status: 'error', message: error })
+    c.status(400);
+    return c.json({ status: "error", message: error });
   }
-})
-export const handler = handle(app)
+});
+export const handler = handle(app);

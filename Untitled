@@ -1,0 +1,330 @@
+diff --git a/lambda/admin/products.ts b/lambda/admin/products.ts
+index e7f7d78..b105a3b 100644
+--- a/lambda/admin/products.ts
++++ b/lambda/admin/products.ts
+@@ -1,41 +1,42 @@
+ import { S3Client, DeleteObjectsCommand } from "@aws-sdk/client-s3";
+ import { DynamoDB } from "@aws-sdk/client-dynamodb";
+-import { DynamoDBDocument } from '@aws-sdk/lib-dynamodb'
+-import { Hono } from 'hono'
+-import { handle } from 'hono/aws-lambda'
+-import { AuthEvent, Product } from '../../types'
++import { DynamoDBDocument } from "@aws-sdk/lib-dynamodb";
++import { Hono } from "hono";
++import { handle } from "hono/aws-lambda";
++import { AuthEvent, Product } from "../../types";
+ import { ulid } from "ulidx";
+ import { getPresignedUrl } from "../utils/lib";
+ 
+ type Bindings = {
+-  event: AuthEvent
+-}
++  event: AuthEvent;
++};
+ const TableName = process.env.DB_TABLE_NAME;
+ const Bucket = process.env.BUCKET_NAME;
+ const region = process.env.REGION as string;
+ 
+-const app = new Hono<{ Bindings: Bindings }>()
++const app = new Hono<{ Bindings: Bindings }>();
+ 
+-const dbClient = new DynamoDB({})
+-const db = DynamoDBDocument.from(dbClient)
++const dbClient = new DynamoDB({});
++const db = DynamoDBDocument.from(dbClient);
+ const s3Client = new S3Client({ region });
+ 
+-
+ const genUpdateExp = (body: any) => {
+   let updateExp: string[] = [];
+-  let ExpAttrVals: { [key: string]: string } = {}
+-  const keys = Object.keys(body)
++  let ExpAttrVals: { [key: string]: string } = {};
++  const keys = Object.keys(body);
+   for (let i = 0; i < keys.length; i++) {
+-    if (keys[i] === 'category') updateExp.push(`lsi = :category`)
+-    else updateExp.push(` ${keys[i]}= :${keys[i]}`)
+-    Object.assign(ExpAttrVals, { [`:${keys[i]}`]: body[keys[i]] })
++    if (keys[i] === "category") updateExp.push(`lsi = :category`);
++    else updateExp.push(` ${keys[i]}= :${keys[i]}`);
++    Object.assign(ExpAttrVals, { [`:${keys[i]}`]: body[keys[i]] });
+   }
+-  return { UpdateExpression: updateExp.join(", "), ExpressionAttributeValues: ExpAttrVals }
+-}
+-
++  return {
++    UpdateExpression: updateExp.join(", "),
++    ExpressionAttributeValues: ExpAttrVals,
++  };
++};
+ 
+-app.post('/admin/products', async (c) => {
+-  const body: Omit<Product, "id"> = await c.req.json()
++app.post("/admin/products", async (c) => {
++  const body: Omit<Product, "id"> = await c.req.json();
+   try {
+     const id = ulid();
+     const result = await db.put({
+@@ -51,90 +52,114 @@ app.post('/admin/products', async (c) => {
+         ratings: body.ratings,
+         variants: body.variants,
+         description: body.description,
+-        specs: body.specs
++        specs: body.specs,
+       },
+-    })
++    });
+     const categories = await db.get({
+       TableName,
+       Key: {
+-        pk: 'categories',
+-        sk: 'metadata',
++        pk: "categories",
++        sk: "metadata",
+       },
+-      ProjectionExpression: body.category
+-    })
+-    if (!categories.Item) return c.json({ status: "error", message: "DB error" })
++      ProjectionExpression: body.category,
++    });
++    if (!categories.Item)
++      return c.json({ status: "error", message: "DB error" });
+     const res = await db.update({
+       TableName,
+       Key: {
+-        pk: 'categories',
+-        sk: 'metadata'
++        pk: "categories",
++        sk: "metadata",
+       },
+       UpdateExpression: `set ${body.category} = :category`,
+       ExpressionAttributeValues: {
+         ":category": {
+           ...categories.Item[body.category],
+-          qty: categories.Item[body.category].qty + 1
+-        }
+-      }
+-    })
+-    if (res.$metadata.httpStatusCode !== 200) return c.json({ status: "error", message: "DB error" })
+-    const thumbnailUrl = await getPresignedUrl(`products/${body.category}/${id}/${body.thumbnail}`)
+-    const imageUrls = body.images.map((image) => getPresignedUrl(`products/${body.category}/${id}/${image}`))
+-    return c.json({ id: body.category + "-" + id, thumbnail: thumbnailUrl, imageUrls: await Promise.all(imageUrls) })
++          qty: categories.Item[body.category].qty + 1,
++        },
++      },
++    });
++    if (res.$metadata.httpStatusCode !== 200)
++      return c.json({ status: "error", message: "DB error" });
++    const thumbnailUrl = await getPresignedUrl(
++      `products/${body.category}/${id}/${body.thumbnail}`,
++    );
++    const imageUrls = body.images.map((image) =>
++      getPresignedUrl(`products/${body.category}/${id}/${image}`),
++    );
++    return c.json({
++      id: body.category + "-" + id,
++      thumbnail: thumbnailUrl,
++      imageUrls: await Promise.all(imageUrls),
++    });
+   } catch (error: any) {
+-    throw new Error(error)
++    throw new Error(error);
+   }
+-})
+-app.delete('/admin/products', async (c) => {
+-  const { category, id } = await c.req.json()
++});
++app.delete("/admin/products", async (c) => {
++  const { category, id } = await c.req.json();
+   try {
+     const result = await db.delete({
+       TableName,
+       Key: {
+-        pk: "products" + category,
+-        sk: id
++        pk: "products:" + category,
++        sk: id,
+       },
+-      ReturnValues: 'ALL_OLD'
+-    })
+-    if (result.$metadata.httpStatusCode !== 200) return c.json({ status: "error", message: "DB error" }, 400)
++      ReturnValues: "ALL_OLD",
++    });
++    if (result.$metadata.httpStatusCode !== 200)
++      return c.json({ status: "error", message: "DB error" }, 400);
+     const { $metadata } = await s3Client.send(
+       new DeleteObjectsCommand({
+         Bucket,
+         Delete: {
+-          Objects: [result.Attributes?.thumbnail, ...result.Attributes?.images].map((key: string) => ({ Key: `products/${id.split("-")[0]}/${id.split("-")[1]}/${key}` })),
++          Objects: [
++            result.Attributes?.thumbnail,
++            ...result.Attributes?.images,
++          ].map((key: string) => ({
++            Key: `products/${id.split("-")[0]}/${id.split("-")[1]}/${key}`,
++          })),
+         },
+       }),
+     );
+-    if ($metadata.httpStatusCode !== 200) return c.json({ status: "error", message: "S3 error" }, 400)
+-    return c.json({ status: "success", messages: "Product deleted" })
++    if ($metadata.httpStatusCode !== 200)
++      return c.json({ status: "error", message: "S3 error" }, 400);
++    return c.json({ status: "success", messages: "Product deleted" });
+   } catch (error: any) {
+-    throw new Error(error)
++    throw new Error(error);
+   }
+-})
++});
+ 
+ //FIX: Wrong PK & SK
+-app.patch('/admin/products', async (c) => {
+-  const body = await c.req.json()
+-  const { UpdateExpression, ExpressionAttributeValues } = genUpdateExp(body)
++app.patch("/admin/products", async (c) => {
++  const body: Partial<Product> = await c.req.json();
++  const { UpdateExpression, ExpressionAttributeValues } = genUpdateExp(body);
+   try {
+     const result = await db.update({
+       TableName,
+       Key: {
+         pk: "product",
+-        sk: body.category + "-" + body.id
++        sk: body.category + "-" + body.id,
+       },
+       UpdateExpression: "set" + " " + UpdateExpression,
+-      ExpressionAttributeValues
+-    }
+-    )
+-    if (result.$metadata.httpStatusCode !== 200) return c.json({ status: "error", message: "DB error" })
+-    const thumbnailUrl = await getPresignedUrl(body.id)
+-    const imageUrls = body.images.map((image: string) => getPresignedUrl(body.id))
+-    return c.json({ thumbnail: thumbnailUrl, imageUrls: await Promise.all(imageUrls) })
+-
++      ExpressionAttributeValues,
++    });
++    if (result.$metadata.httpStatusCode !== 200)
++      return c.json({ status: "error", message: "DB error" });
++    const thumbnailUrl = await getPresignedUrl(
++      `products/${body.category}/${body.id}/${body.thumbnail}`,
++    );
++    const imageUrls = body.images?.map((image) =>
++      getPresignedUrl(`products/${body.category}/${body.id}/${image}`),
++    );
++    return c.json({
++      id: body.category + "-" + body.id,
++      thumbnail: thumbnailUrl,
++      imageUrls: await Promise.all(imageUrls),
++    });
+   } catch (error: any) {
+-    throw new Error(error)
++    throw new Error(error);
+   }
+-})
++});
+ 
+-export const handler = handle(app)
++export const handler = handle(app);
+diff --git a/lambda/user/products.ts b/lambda/user/products.ts
+index cef39a3..d0b638c 100644
+--- a/lambda/user/products.ts
++++ b/lambda/user/products.ts
+@@ -1,33 +1,36 @@
+-import { Hono } from "hono"
+-import { handle } from "hono/aws-lambda"
++import { Hono } from "hono";
++import { handle } from "hono/aws-lambda";
+ import { DynamoDB } from "@aws-sdk/client-dynamodb";
+-import { DynamoDBDocument } from '@aws-sdk/lib-dynamodb'
++import { DynamoDBDocument } from "@aws-sdk/lib-dynamodb";
+ import { AuthEvent } from "../../types";
+ 
+ type Bindings = {
+-  event: AuthEvent
+-}
++  event: AuthEvent;
++};
+ 
+-const dbClient = new DynamoDB({})
+-const db = DynamoDBDocument.from(dbClient)
++const dbClient = new DynamoDB({});
++const db = DynamoDBDocument.from(dbClient);
+ const TableName = process.env.DB_TABLE_NAME;
+-const app = new Hono<{ Bindings: Bindings }>()
++const app = new Hono<{ Bindings: Bindings }>();
+ 
+-
+-app.get('/products/:id', async (c) => {
++app.get("/products/:id", async (c) => {
+   try {
+     const { Item } = await db.get({
+       TableName,
+       Key: {
+-        pk: "products:" + c.req.param('id').split('-')[0],
+-        sk: c.req.param('id').split('-')[1]
++        pk: "products:" + c.req.param("id").split("-")[0],
++        sk: c.req.param("id").split("-")[1],
+       },
+-    })
+-    if (!Item) return c.json({ status: "error", message: "No product found with given id" })
++    });
++    if (!Item)
++      return c.json({
++        status: "error",
++        message: "No product found with given id",
++      });
+     return c.json({
+-      category: Item.pk,
++      category: Item.pk.split(":")[1],
+       id: Item.sk,
+-      gender: Item.gender,
++      gender: Item.lsi,
+       title: Item.title,
+       images: Item.images,
+       thumbnail: Item.thumbnail,
+@@ -35,29 +38,29 @@ app.get('/products/:id', async (c) => {
+       ratings: Item.ratings,
+       variants: Item.variants,
+       description: Item.description,
+-      specs: Item.specs
+-    })
++      specs: Item.specs,
++    });
+   } catch (error) {
+-    c.status(400)
+-    return c.json({ status: 'error', message: error })
++    c.status(400);
++    return c.json({ status: "error", message: error });
+   }
+-})
++});
+ 
+ //FIX:This endpoint needs to be updated.
+-app.get('/products', async (c) => {
++app.get("/products", async (c) => {
+   try {
+     const data = await db.query({
+       TableName,
+-      KeyConditionExpression: 'pk = :pk',
++      KeyConditionExpression: "pk = :pk",
+       ExpressionAttributeValues: {
+-        ":pk": "product"
++        ":pk": "product",
+       },
+-      ProjectionExpression: "sk, thumbnail, price, title"
+-    })
+-    return c.json(data.Items)
++      ProjectionExpression: "sk, thumbnail, price, title",
++    });
++    return c.json(data.Items);
+   } catch (error) {
+-    c.status(400)
+-    return c.json({ status: 'error', message: error })
++    c.status(400);
++    return c.json({ status: "error", message: error });
+   }
+-})
+-export const handler = handle(app)
++});
++export const handler = handle(app);
