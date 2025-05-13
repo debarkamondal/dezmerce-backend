@@ -45,22 +45,3 @@ app.get("/products/:id", async (c) => {
     return c.json({ status: "error", message: error });
   }
 });
-
-//FIX:This endpoint needs to be updated.
-app.get("/products", async (c) => {
-  try {
-    const data = await db.query({
-      TableName,
-      KeyConditionExpression: "pk = :pk",
-      ExpressionAttributeValues: {
-        ":pk": "product",
-      },
-      ProjectionExpression: "sk, thumbnail, price, title",
-    });
-    return c.json(data.Items);
-  } catch (error) {
-    c.status(400);
-    return c.json({ status: "error", message: error });
-  }
-});
-export const handler = handle(app);

@@ -3,7 +3,7 @@ import { DynamoDB } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocument } from "@aws-sdk/lib-dynamodb";
 import { Hono } from "hono";
 import { handle } from "hono/aws-lambda";
-import { AuthEvent, Product } from "../../types";
+import { AuthEvent, resProduct } from "../../types";
 import { ulid } from "ulidx";
 import { getPresignedUrl } from "../utils/lib";
 
@@ -25,7 +25,7 @@ const genUpdateExp = (body: any) => {
   let ExpAttrVals: { [key: string]: string } = {};
   const keys = Object.keys(body);
   for (let i = 0; i < keys.length; i++) {
-    if (keys[i] === "category") updateExp.push(`lsi = :category`);
+    if (keys[i] === "category") updateExp.push(`lsi = :gender`);
     else updateExp.push(` ${keys[i]}= :${keys[i]}`);
     Object.assign(ExpAttrVals, { [`:${keys[i]}`]: body[keys[i]] });
   }
@@ -36,7 +36,7 @@ const genUpdateExp = (body: any) => {
 };
 
 app.post("/admin/products", async (c) => {
-  const body: Omit<Product, "id"> = await c.req.json();
+  const body: Omit<resProduct, "id"> = await c.req.json();
   try {
     const id = ulid();
     const result = await db.put({
@@ -138,8 +138,8 @@ app.patch("/admin/products", async (c) => {
     const result = await db.update({
       TableName,
       Key: {
-        pk: "product",
-        sk: body.category + "-" + body.id,
+        pk: "product:" + body.category,
+        sk: body.id,
       },
       UpdateExpression: "set" + " " + UpdateExpression,
       ExpressionAttributeValues,
@@ -155,7 +155,7 @@ app.patch("/admin/products", async (c) => {
     return c.json({
       id: body.category + "-" + body.id,
       thumbnail: thumbnailUrl,
-      imageUrls: await Promise.all(imageUrls),
+      imageUrls: imageUrls ? await Promise.all(imageUrls) : null,
     });
   } catch (error: any) {
     throw new Error(error);
