@@ -196,8 +196,8 @@ export class ApiStack extends Stack {
       },
       {
         name: "get-product",
-        entry: "lambda/user/products.ts",
-        route: "/products/{id}",
+        entry: "lambda/user/product.ts",
+        route: "/product/{:id}",
         environment: {
           DB_TABLE_NAME: props.table.tableName,
         },

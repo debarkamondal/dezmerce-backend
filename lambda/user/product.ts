@@ -13,7 +13,7 @@ const db = DynamoDBDocument.from(dbClient);
 const TableName = process.env.DB_TABLE_NAME;
 const app = new Hono<{ Bindings: Bindings }>();
 
-app.get("/products/:id", async (c) => {
+app.get("/product/:id", async (c) => {
   try {
     const { Item } = await db.get({
       TableName,
@@ -45,3 +45,4 @@ app.get("/products/:id", async (c) => {
     return c.json({ status: "error", message: error });
   }
 });
+export const handler = handle(app);

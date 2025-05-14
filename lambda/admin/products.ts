@@ -3,7 +3,7 @@ import { DynamoDB } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocument } from "@aws-sdk/lib-dynamodb";
 import { Hono } from "hono";
 import { handle } from "hono/aws-lambda";
-import { AuthEvent, resProduct } from "../../types";
+import { type AuthEvent, type resProduct } from "../../types";
 import { ulid } from "ulidx";
 import { getPresignedUrl } from "../utils/lib";
 
@@ -132,7 +132,7 @@ app.delete("/admin/products", async (c) => {
 
 //FIX: Wrong PK & SK
 app.patch("/admin/products", async (c) => {
-  const body: Partial<Product> = await c.req.json();
+  const body: Partial<resProduct> = await c.req.json();
   const { UpdateExpression, ExpressionAttributeValues } = genUpdateExp(body);
   try {
     const result = await db.update({
