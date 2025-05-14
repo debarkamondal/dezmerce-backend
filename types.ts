@@ -1,3 +1,5 @@
+import { RequestContext } from "aws-cdk-lib/aws-apigateway";
+
 export type CartItem = {
   id: string;
   title: string;
@@ -29,8 +31,12 @@ export interface dbProduct extends baseProduct {
   lsi: string;
 }
 
-export type AuthEvent = {
-  role?: string;
-  iat: string;
-  email: string;
-};
+export interface AuthContext extends RequestContext {
+  authorizer: {
+    lambda: {
+      role?: string;
+      iat: string;
+      email: string;
+    };
+  };
+}
