@@ -109,6 +109,32 @@ app.delete("/admin/products", async (c) => {
     });
     if (result.$metadata.httpStatusCode !== 200)
       return c.json({ status: "error", message: "DB error" }, 400);
+    const categories = await db.get({
+      TableName,
+      Key: {
+        pk: "categories",
+        sk: "metadata",
+      },
+      ProjectionExpression: category,
+    });
+    if (!categories.Item)
+      return c.json({ status: "error", message: "DB error" });
+    const res = await db.update({
+      TableName,
+      Key: {
+        pk: "categories",
+        sk: "metadata",
+      },
+      UpdateExpression: `set ${category} = :category`,
+      ExpressionAttributeValues: {
+        ":category": {
+          ...categories.Item[category],
+          qty: categories.Item[category].qty - 1,
+        },
+      },
+    });
+    if (res.$metadata.httpStatusCode !== 200)
+      return c.json({ status: "error", message: "DB error" });
     const { $metadata } = await s3Client.send(
       new DeleteObjectsCommand({
         Bucket,
