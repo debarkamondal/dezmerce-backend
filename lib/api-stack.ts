@@ -67,7 +67,7 @@ export class ApiStack extends Stack {
           mappingKey: config.stage,
         },
         corsPreflight: {
-          allowOrigins: ["http://localhost:3000"],
+          allowOrigins: ["http://localhost:3000", "https://www.dkmondal.in"],
           allowMethods: [apigw2.CorsHttpMethod.GET],
         },
       },

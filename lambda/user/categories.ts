@@ -23,6 +23,8 @@ app.get("/categories", async (c) => {
     },
   });
   if (!Item) return c.json({ status: "error", message: "no categories found" });
+  delete Item.pk;
+  delete Item.sk;
   return c.json(Item);
 });
 
