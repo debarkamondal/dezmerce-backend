@@ -172,7 +172,7 @@ export class ApiStack extends Stack {
       },
       {
         name: "get-categories",
-        entry: "lambda/user/categories.ts",
+        entry: "lambda/public/categories.ts",
         route: "/categories",
         methods: [apigw2.HttpMethod.GET],
         environment: {
@@ -184,7 +184,7 @@ export class ApiStack extends Stack {
       },
       {
         name: "get-category-products",
-        entry: "lambda/user/categories.ts",
+        entry: "lambda/public/categories.ts",
         route: "/categories/{:category}",
         methods: [apigw2.HttpMethod.GET],
         environment: {
@@ -196,7 +196,7 @@ export class ApiStack extends Stack {
       },
       {
         name: "get-product",
-        entry: "lambda/user/product.ts",
+        entry: "lambda/public/product.ts",
         route: "/product/{:id}",
         environment: {
           DB_TABLE_NAME: props.table.tableName,
