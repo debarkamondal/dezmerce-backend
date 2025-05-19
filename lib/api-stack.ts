@@ -206,13 +206,25 @@ export class ApiStack extends Stack {
         },
         methods: [apigw2.HttpMethod.GET],
       },
+      {
+        name: "get-cart-value",
+        entry: "lambda/public/cart.ts",
+        route: "/cart",
+        environment: {
+          DB_TABLE_NAME: props.table.tableName,
+        },
+        permissions: {
+          db: "R" as const,
+        },
+        methods: [apigw2.HttpMethod.PUT],
+      },
     ];
     //Define user lambdas
     const userLambdas: lambda[] = [
       {
         name: "cart",
         entry: "lambda/user/cart.ts",
-        route: "/cart",
+        route: "/user/cart",
         environment: {
           DB_TABLE_NAME: props.table.tableName,
         },

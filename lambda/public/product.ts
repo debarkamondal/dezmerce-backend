@@ -1,11 +1,10 @@
 import { Hono } from "hono";
-import { handle } from "hono/aws-lambda";
+import { handle, type LambdaEvent } from "hono/aws-lambda";
 import { DynamoDB } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocument } from "@aws-sdk/lib-dynamodb";
-import { AuthEvent } from "../../types";
 
 type Bindings = {
-  event: AuthEvent;
+  event: LambdaEvent;
 };
 
 const dbClient = new DynamoDB({});

@@ -1,6 +1,7 @@
 import { RequestContext } from "aws-cdk-lib/aws-apigateway";
 
 export type CartItem = {
+  category: string;
   id: string;
   title: string;
   image: string;

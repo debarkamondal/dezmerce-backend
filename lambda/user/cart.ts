@@ -14,7 +14,7 @@ const db = DynamoDBDocument.from(dbClient);
 const TableName = process.env.DB_TABLE_NAME;
 const app = new Hono<{ Bindings: Bindings }>();
 
-app.get("/cart", async (c) => {
+app.get("/user/cart", async (c) => {
   try {
     const cart = await db.get({
       TableName,
@@ -30,7 +30,7 @@ app.get("/cart", async (c) => {
   }
 });
 
-app.post("/cart", async (c) => {
+app.post("/user/cart", async (c) => {
   try {
     const cart = await db.put({
       TableName,

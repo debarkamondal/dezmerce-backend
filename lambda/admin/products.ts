@@ -2,13 +2,13 @@ import { S3Client, DeleteObjectsCommand } from "@aws-sdk/client-s3";
 import { DynamoDB } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocument } from "@aws-sdk/lib-dynamodb";
 import { Hono } from "hono";
-import { handle } from "hono/aws-lambda";
-import { type AuthEvent, type resProduct } from "../../types";
+import { handle, LambdaEvent } from "hono/aws-lambda";
+import { type resProduct } from "../../types";
 import { ulid } from "ulidx";
 import { getPresignedUrl } from "../utils/lib";
 
 type Bindings = {
-  event: AuthEvent;
+  event: LambdaEvent;
 };
 const TableName = process.env.DB_TABLE_NAME;
 const Bucket = process.env.BUCKET_NAME;
