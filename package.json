@@ -28,6 +28,7 @@
   },
   "dependencies": {
     "hono": "^4.7.7",
+    "razorpay": "^2.9.6",
     "ulidx": "^2.4.1"
   }
 }

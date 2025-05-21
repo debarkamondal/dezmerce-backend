@@ -5,4 +5,6 @@ export interface SharedConfig {
   stage: string;
   projectName: string;
   region: string;
+  pgId: string;
+  pgSecret: string;
 }
