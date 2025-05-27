@@ -64,9 +64,10 @@ app.get("/orders", async (c) => {
     }),
   );
   if (!Item) return c.json({ status: "error", message: "DB error" });
-  const { pk, sk, ...rest } = Item;
+  const { pk, sk, lsi, ...rest } = Item;
   return c.json({
     id: sk,
+    status: lsi,
     ...rest,
   });
 });
@@ -126,16 +127,6 @@ app.post("/orders", async (c) => {
 
   const id = ulid();
   try {
-    //Creating an order on Razorpay
-    // const res = await instance.orders.create({
-    //   amount: recipt.total * 100,
-    //   currency: "INR",
-    //   receipt: `order:${id}`,
-    // });
-
-    // if (res.status !== "created")
-    //   throw new Error("Couldn't initiate order with RazorPay");
-    // Storing the order details in db
     const transactions: Array<Record<string, any>> = [
       {
         Put: {
@@ -147,9 +138,7 @@ app.post("/orders", async (c) => {
             phone: body.user.phone,
             email: body.user.email,
             address: body.user.address,
-            status: "initiated",
-            // status: res.status,
-            // lsi: res.id,
+            lsi: "initiated",
             ...recipt,
           },
         },
