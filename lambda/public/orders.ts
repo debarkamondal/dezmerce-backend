@@ -147,22 +147,33 @@ app.post("/orders", async (c) => {
 
     //Update order information if user has account
     if (c.req.header("authorization"))
-      transactions.push({
-        Update: {
-          TableName,
-          Key: {
-            pk: "user",
-            sk: userEmail,
-          },
-          UpdateExpression: `SET #orders = list_append(#orders,:order)`,
-          ExpressionAttributeNames: {
-            "#orders": "orders",
-          },
-          ExpressionAttributeValues: {
-            ":order": [id],
+      transactions.push(
+        {
+          Update: {
+            TableName,
+            Key: {
+              pk: "user",
+              sk: userEmail,
+            },
+            UpdateExpression: `SET #orders = list_append(#orders,:order)`,
+            ExpressionAttributeNames: {
+              "#orders": "orders",
+            },
+            ExpressionAttributeValues: {
+              ":order": [id],
+            },
           },
         },
-      });
+        {
+          Delete: {
+            TableName,
+            Key: {
+              pk: "cart",
+              sk: userEmail,
+            },
+          },
+        },
+      );
     const data = await client.send(
       new TransactWriteCommand({
         TransactItems: transactions,

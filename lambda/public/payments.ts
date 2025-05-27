@@ -84,11 +84,11 @@ app.post("/payments", async (c) => {
     },
     UpdateExpression: "SET #status= :status, payment_id= :payment_id",
     ExpressionAttributeValues: {
-      ":status": payment.status,
+      ":status": "paid",
       ":payment_id": payment.id,
     },
     ExpressionAttributeNames: {
-      "#status": "status",
+      "#status": "lsi",
     },
     ReturnValues: "ALL_NEW",
   });
