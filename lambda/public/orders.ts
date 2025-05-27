@@ -58,15 +58,15 @@ app.get("/orders", async (c) => {
     new GetCommand({
       TableName,
       Key: {
-        pk: "order:" + decodedToken.email,
-        sk: decodedToken.id,
+        pk: "order",
+        sk: decodedToken.email + ":" + decodedToken.id,
       },
     }),
   );
   if (!Item) return c.json({ status: "error", message: "DB error" });
   const { pk, sk, lsi, ...rest } = Item;
   return c.json({
-    id: sk,
+    id: sk.split(":")[1],
     status: lsi,
     ...rest,
   });
@@ -132,8 +132,8 @@ app.post("/orders", async (c) => {
         Put: {
           TableName,
           Item: {
-            pk: `order:${userEmail}`,
-            sk: id,
+            pk: `order`,
+            sk: userEmail + ":" + id,
             name: body.user.name,
             phone: body.user.phone,
             email: body.user.email,

@@ -26,8 +26,8 @@ app.get("/payments", async (c) => {
   const { Item } = await db.get({
     TableName,
     Key: {
-      pk: "order:" + orderToken.email,
-      sk: orderToken.id,
+      pk: "order",
+      sk: orderToken.email + ":" + orderToken.id,
     },
   });
   if (!Item)
@@ -35,7 +35,7 @@ app.get("/payments", async (c) => {
   const res = await instance.orders.create({
     amount: Item.total * 100,
     currency: "INR",
-    receipt: `order:${Item.sk}`,
+    receipt: `order:${orderToken.id}`,
   });
 
   if (res.status !== "created")
@@ -76,11 +76,11 @@ app.post("/payments", async (c) => {
   const payment = await instance.payments.fetch(pg.payment_id);
   if (payment.status !== "captured")
     return c.redirect("https://dkmondal.in/payment-failed");
-  const dbRes = await db.update({
+  await db.update({
     TableName,
     Key: {
-      pk: "order:" + payment.email,
-      sk: payment.description?.split(":")[1],
+      pk: "order",
+      sk: payment.email + ":" + payment.description?.split(":")[1],
     },
     UpdateExpression: "SET #status= :status, payment_id= :payment_id",
     ExpressionAttributeValues: {
@@ -92,8 +92,6 @@ app.post("/payments", async (c) => {
     },
     ReturnValues: "ALL_NEW",
   });
-  return c.redirect(
-    `https://dkmondal.in/payment-verified/order-${payment.description?.split(":")[1]}`,
-  );
+  return c.redirect(`https://dkmondal.in/public/order`);
 });
 export const handler = handle(app);
