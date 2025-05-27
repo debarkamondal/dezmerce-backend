@@ -6,40 +6,76 @@ import {
   DynamoDBDocumentClient,
   BatchGetCommand,
   GetCommand,
-  PutCommand,
-  BatchWriteCommand,
   TransactWriteCommand,
 } from "@aws-sdk/lib-dynamodb";
 import Razorpay from "razorpay";
 import { CartItem } from "../../types";
-import { verify } from "hono/jwt";
-import { validatePaymentVerification } from "razorpay/dist/utils/razorpay-utils";
+import { sign, verify } from "hono/jwt";
+import { setCookie } from "hono/cookie";
 
 type Bindings = {
   event: LambdaEvent;
 };
 
-const db = new DynamoDB({});
-const client = DynamoDBDocumentClient.from(db);
+type OrderBody = {
+  items: {
+    [key: string]: {
+      category: string;
+      qty: number;
+      title: string;
+    };
+  };
+  user: {
+    name: string;
+    email?: string;
+    phone?: number;
+    address: {
+      addressLine1: string;
+      addressLine2: string;
+      city: string;
+      state: string;
+      pincode: number;
+    };
+  };
+};
+
 const TableName = process.env.DB_TABLE_NAME as string;
 const pgId = process.env.PAYMENT_GW_KEY_ID as string;
 const pgSecret = process.env.PAYMENT_GW_KEY_SECRET as string;
+const JWTSecret = process.env.JWTSecret as string;
 
+const db = new DynamoDB({});
+const client = DynamoDBDocumentClient.from(db);
 const instance = new Razorpay({ key_id: pgId, key_secret: pgSecret });
 const app = new Hono<{ Bindings: Bindings }>();
-type OrderBody = {
-  items?: CartItem[];
-  user: {
-    email?: string;
-    number?: number;
-  };
-};
+
+app.get("/orders", async (c) => {
+  const decodedToken = await verify(
+    c.req.header("order-token") as string,
+    JWTSecret,
+  );
+  const { Item } = await client.send(
+    new GetCommand({
+      TableName,
+      Key: {
+        pk: "order:" + decodedToken.email,
+        sk: decodedToken.id,
+      },
+    }),
+  );
+  if (!Item) return c.json({ status: "error", message: "DB error" });
+  const { pk, sk, ...rest } = Item;
+  return c.json({
+    id: sk,
+    ...rest,
+  });
+});
+
 app.post("/orders", async (c) => {
-  let items = [];
   let userEmail;
   let recipt: {
     total: number;
-    items: Record<string, { price: number; qty: number }>;
+    items: Record<string, { price: number; qty: number; title: string }>;
   } = { total: 0, items: {} };
 
   const body: OrderBody = await c.req.json();
@@ -47,120 +83,112 @@ app.post("/orders", async (c) => {
   if (c.req.header("authorization")) {
     const decodedToken = await verify(
       c.req.header("authorization") as string,
-      process.env.JWTSecret as string,
+      JWTSecret,
     );
     userEmail = decodedToken.email;
-    const { Item } = await client.send(
-      new GetCommand({
-        TableName,
-        Key: {
-          pk: "cart",
-          sk: decodedToken.email,
-        },
-      }),
-    );
-    if (Item?.items) items = Item.items;
   } else {
     userEmail = body.user.email;
-    const Keys = body.items?.map((item) => {
-      return {
-        pk: "products:" + item.category,
-        sk: item.id,
-      };
-    });
-
-    //Fetching updated item prices
-    const data = await client.send(
-      new BatchGetCommand({
-        RequestItems: {
-          [TableName]: {
-            Keys,
-            ProjectionExpression: "pk, sk, price",
-          },
-        },
-      }),
-    );
-    if (!data.Responses)
-      return c.json({ status: "error", message: "DB error" });
-    items = data.Responses[TableName];
   }
-
-  recipt.total = items.reduce((price: number, item: CartItem) => {
-    recipt.items[`${item.category}-${item.id}`] = {
-      qty: item.qty,
-      price: item.price,
+  const Keys = Object.keys(body.items).map((key: string) => {
+    return {
+      pk: "products:" + body.items[key].category,
+      sk: key,
     };
-    return (price += item.price * item.qty);
+  });
+
+  //Fetching updated item prices
+  const data = await client.send(
+    new BatchGetCommand({
+      RequestItems: {
+        [TableName]: {
+          Keys,
+          ProjectionExpression: "pk, sk, price,title",
+        },
+      },
+    }),
+  );
+  if (!data.Responses) return c.json({ status: "error", message: "DB error" });
+  const items = data.Responses[TableName] as {
+    pk: string;
+    sk: string;
+    price: number;
+    title: string;
+  }[];
+
+  recipt.total = items.reduce((price: number, item) => {
+    recipt.items[`${item.pk.split(":")[1]}-${item.sk}`] = {
+      qty: body.items[item.sk].qty,
+      price: item.price,
+      title: item.title,
+    };
+    return (price += item.price * body.items[item.sk].qty);
   }, 0);
 
   const id = ulid();
   try {
     //Creating an order on Razorpay
-    const res = await instance.orders.create({
-      amount: recipt.total * 100,
-      currency: "INR",
-      receipt: `order:${id}`,
-    });
+    // const res = await instance.orders.create({
+    //   amount: recipt.total * 100,
+    //   currency: "INR",
+    //   receipt: `order:${id}`,
+    // });
 
-    if (res.status !== "created")
-      throw new Error("Couldn't initiate order with RazorPay");
+    // if (res.status !== "created")
+    //   throw new Error("Couldn't initiate order with RazorPay");
     // Storing the order details in db
+    const transactions: Array<Record<string, any>> = [
+      {
+        Put: {
+          TableName,
+          Item: {
+            pk: `order:${userEmail}`,
+            sk: id,
+            name: body.user.name,
+            phone: body.user.phone,
+            email: body.user.email,
+            address: body.user.address,
+            status: "initiated",
+            // status: res.status,
+            // lsi: res.id,
+            ...recipt,
+          },
+        },
+      },
+    ];
+
+    //Update order information if user has account
+    if (c.req.header("authorization"))
+      transactions.push({
+        Update: {
+          TableName,
+          Key: {
+            pk: "user",
+            sk: userEmail,
+          },
+          UpdateExpression: `SET #orders = list_append(#orders,:order)`,
+          ExpressionAttributeNames: {
+            "#orders": "orders",
+          },
+          ExpressionAttributeValues: {
+            ":order": [id],
+          },
+        },
+      });
     const data = await client.send(
       new TransactWriteCommand({
-        TransactItems: [
-          {
-            Put: {
-              TableName,
-              Item: {
-                pk: `order:${id}`,
-                sk: userEmail,
-                status: res.status,
-                gwOrderId: res.id,
-                ...recipt,
-              },
-            },
-          },
-          {
-            Update: {
-              TableName,
-              Key: {
-                pk: "user",
-                sk: userEmail,
-              },
-              UpdateExpression: `SET #orders = list_append(#orders,:order)`,
-              ExpressionAttributeNames: {
-                "#orders": "orders",
-              },
-              ExpressionAttributeValues: {
-                ":order": [id],
-              },
-            },
-          },
-        ],
+        TransactItems: transactions,
       }),
     );
     if (data.$metadata.httpStatusCode !== 200) throw new Error("DB error");
-    const response = {
-      amount: recipt.total * 100,
-      currency: "INR",
-      description: `order:${id}`,
-      order_id: res.id,
-      prefill: {
-        email: userEmail,
-      },
-      theme: {
-        color: "#c93063",
-        backdrop_color: "#ffffff",
-      },
+    const payload = {
+      email: userEmail,
+      id,
     };
-    return c.json(response);
+    setCookie(c, "order", await sign(payload, process.env.JWTSecret as string));
+    return c.json(payload);
   } catch (err) {
     return c.json({ status: "error", message: err });
   }
 });
 
-app.post("/orders/verify", async (c) => {
-  // validatePaymentVerification()
-  return c.json(await c.req.formData());
-});
 export const handler = handle(app);

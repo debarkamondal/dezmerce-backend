@@ -171,19 +171,25 @@ export class ApiStack extends Stack {
         },
       },
       {
-        name: "verify-payment",
+        name: "public-payments",
         entry: "lambda/public/payments.ts",
-        route: "/payments/verify",
-        methods: [apigw2.HttpMethod.POST],
+        route: "/payments",
+        methods: [apigw2.HttpMethod.POST, apigw2.HttpMethod.GET],
         environment: {
           PAYMENT_GW_KEY_SECRET: config.pgSecret,
+          PAYMENT_GW_KEY_ID: config.pgId,
+          DB_TABLE_NAME: props.table.tableName,
+          JWTSecret: config.JWTSecret,
+        },
+        permissions: {
+          db: "RW" as const,
         },
       },
       {
-        name: "create-order",
+        name: "public-order",
         entry: "lambda/public/orders.ts",
         route: "/orders",
-        methods: [apigw2.HttpMethod.POST],
+        methods: [apigw2.HttpMethod.POST, apigw2.HttpMethod.GET],
         environment: {
           DB_TABLE_NAME: props.table.tableName,
           PAYMENT_GW_KEY_ID: config.pgId,
