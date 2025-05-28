@@ -140,6 +140,19 @@ export class ApiStack extends Stack {
         authorizer: this.adminAuthorizer,
       },
       {
+        name: "admin-orders",
+        entry: "lambda/admin/orders.ts",
+        route: "/admin/orders",
+        methods: [apigw2.HttpMethod.GET],
+        environment: {
+          DB_TABLE_NAME: props.table.tableName,
+        },
+        permissions: {
+          db: "R" as const,
+        },
+        authorizer: this.adminAuthorizer,
+      },
+      {
         name: "admin-categories",
         entry: "lambda/admin/categories.ts",
         route: "/admin/categories",
@@ -192,8 +205,6 @@ export class ApiStack extends Stack {
         methods: [apigw2.HttpMethod.POST, apigw2.HttpMethod.GET],
         environment: {
           DB_TABLE_NAME: props.table.tableName,
-          PAYMENT_GW_KEY_ID: config.pgId,
-          PAYMENT_GW_KEY_SECRET: config.pgSecret,
           JWTSecret: config.JWTSecret,
         },
         permissions: {
@@ -209,7 +220,7 @@ export class ApiStack extends Stack {
           DB_TABLE_NAME: props.table.tableName,
         },
         permissions: {
-          db: "RW" as const,
+          db: "R" as const,
         },
       },
       {
@@ -221,7 +232,7 @@ export class ApiStack extends Stack {
           DB_TABLE_NAME: props.table.tableName,
         },
         permissions: {
-          db: "RW" as const,
+          db: "R" as const,
         },
       },
       {

@@ -30,8 +30,10 @@ app.get("/payments", async (c) => {
       sk: orderToken.email + ":" + orderToken.id,
     },
   });
+
   if (!Item)
-    return c.json({ status: "error", message: "Order isn't initiated" });
+    return c.json({ status: "error", adminmessage: "Order isn't initiated" });
+
   const res = await instance.orders.create({
     amount: Item.total * 100,
     currency: "INR",
@@ -40,7 +42,20 @@ app.get("/payments", async (c) => {
 
   if (res.status !== "created")
     throw new Error("Couldn't initiate order with RazorPay");
+
+  await db.update({
+    TableName,
+    Key: {
+      pk: "order",
+      sk: orderToken.email + ":" + orderToken.id,
+    },
+    UpdateExpression: "set gwOrderId = :orderId",
+    ExpressionAttributeValues: {
+      ":orderId": res.id,
+    },
+  });
   return c.json({
+    token: c.req.header("order") as string,
     prefill: {
       email: Item.email,
       contact: "+91" + Item.phone,
@@ -51,9 +66,20 @@ app.get("/payments", async (c) => {
 });
 app.post("/payments", async (c) => {
   const data = await c.req.formData();
+  const decodecToken = await verify(c.req.query("token") as string, JWTSecret);
+  const { Item } = await db.get({
+    TableName,
+    Key: {
+      pk: "order",
+      sk: decodecToken.email + ":" + decodecToken.id,
+    },
+    ProjectionExpression: "gwOrderId",
+  });
+  console.log(decodecToken, Item);
+  if (!Item) return c.json({ status: "error", message: "Invalid Token" });
   const pg = {
+    order_id: Item.gwOrderId,
     payment_id: data.get("razorpay_payment_id") as string,
-    order_id: data.get("razorpay_order_id") as string,
     signature: data.get("razorpay_signature") as string,
   };
   if (!pg.order_id && !pg.payment_id && !pg.signature)

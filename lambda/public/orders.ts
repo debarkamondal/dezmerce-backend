@@ -8,8 +8,6 @@ import {
   GetCommand,
   TransactWriteCommand,
 } from "@aws-sdk/lib-dynamodb";
-import Razorpay from "razorpay";
-import { CartItem } from "../../types";
 import { sign, verify } from "hono/jwt";
 import { setCookie } from "hono/cookie";
 
@@ -40,13 +38,10 @@ type OrderBody = {
 };
 
 const TableName = process.env.DB_TABLE_NAME as string;
-const pgId = process.env.PAYMENT_GW_KEY_ID as string;
-const pgSecret = process.env.PAYMENT_GW_KEY_SECRET as string;
 const JWTSecret = process.env.JWTSecret as string;
 
 const db = new DynamoDB({});
 const client = DynamoDBDocumentClient.from(db);
-const instance = new Razorpay({ key_id: pgId, key_secret: pgSecret });
 const app = new Hono<{ Bindings: Bindings }>();
 
 app.get("/orders", async (c) => {
