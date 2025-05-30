@@ -41,3 +41,52 @@ export interface AuthContext extends RequestContext {
     };
   };
 }
+export type orderStatus =
+  | "initiated"
+  | "paid"
+  | "shipped"
+  | "cancelled"
+  | "delivered";
+
+export type orderBody = {
+  user: {
+    name: string;
+    email?: string;
+    phone?: number;
+    address: {
+      addressLine1: string;
+      addressLine2: string;
+      city: string;
+      state: string;
+      pincode: number;
+    };
+  };
+  items: Record<string, { title?: string; category: string; qty: number }>;
+};
+interface order {
+  total: number;
+  gwOrderId: string;
+  payment_id: string;
+  user: {
+    name: string;
+    email?: string;
+    phone?: number;
+    address: {
+      addressLine1: string;
+      addressLine2: string;
+      city: string;
+      state: string;
+      pincode: number;
+    };
+  };
+  items: Record<string, { title?: string; price: number; qty: number }>;
+}
+export interface adminOrder extends order {
+  pk: string;
+  sk: string;
+  lsi: orderStatus;
+}
+export interface userOrder extends order {
+  id: string;
+  status: orderStatus;
+}

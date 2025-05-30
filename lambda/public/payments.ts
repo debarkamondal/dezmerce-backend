@@ -75,7 +75,6 @@ app.post("/payments", async (c) => {
     },
     ProjectionExpression: "gwOrderId",
   });
-  console.log(decodecToken, Item);
   if (!Item) return c.json({ status: "error", message: "Invalid Token" });
   const pg = {
     order_id: Item.gwOrderId,

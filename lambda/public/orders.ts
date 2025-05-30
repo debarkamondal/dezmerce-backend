@@ -10,31 +10,10 @@ import {
 } from "@aws-sdk/lib-dynamodb";
 import { sign, verify } from "hono/jwt";
 import { setCookie } from "hono/cookie";
+import { order, orderBody } from "../../types";
 
 type Bindings = {
   event: LambdaEvent;
-};
-
-type OrderBody = {
-  items: {
-    [key: string]: {
-      category: string;
-      qty: number;
-      title: string;
-    };
-  };
-  user: {
-    name: string;
-    email?: string;
-    phone?: number;
-    address: {
-      addressLine1: string;
-      addressLine2: string;
-      city: string;
-      state: string;
-      pincode: number;
-    };
-  };
 };
 
 const TableName = process.env.DB_TABLE_NAME as string;
@@ -74,7 +53,7 @@ app.post("/orders", async (c) => {
     items: Record<string, { price: number; qty: number; title: string }>;
   } = { total: 0, items: {} };
 
-  const body: OrderBody = await c.req.json();
+  const body: orderBody = await c.req.json();
 
   if (c.req.header("authorization")) {
     const decodedToken = await verify(
@@ -121,21 +100,24 @@ app.post("/orders", async (c) => {
   }, 0);
 
   const id = ulid();
+  const Item: Omit<order, "gwOrderId" | "payment_id"> = {
+    pk: `order`,
+    sk: userEmail + ":" + id,
+    user: {
+      name: body.user.name,
+      phone: body.user.phone,
+      email: body.user.email,
+      address: body.user.address,
+    },
+    ...recipt,
+    lsi: "initiated",
+  };
   try {
     const transactions: Array<Record<string, any>> = [
       {
         Put: {
           TableName,
-          Item: {
-            pk: `order`,
-            sk: userEmail + ":" + id,
-            name: body.user.name,
-            phone: body.user.phone,
-            email: body.user.email,
-            address: body.user.address,
-            lsi: "initiated",
-            ...recipt,
-          },
+          Item,
         },
       },
     ];
