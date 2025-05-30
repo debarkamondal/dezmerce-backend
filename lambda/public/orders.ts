@@ -10,7 +10,7 @@ import {
 } from "@aws-sdk/lib-dynamodb";
 import { sign, verify } from "hono/jwt";
 import { setCookie } from "hono/cookie";
-import { order, orderBody } from "../../types";
+import { adminOrder, orderBody } from "../../types";
 
 type Bindings = {
   event: LambdaEvent;
@@ -100,7 +100,7 @@ app.post("/orders", async (c) => {
   }, 0);
 
   const id = ulid();
-  const Item: Omit<order, "gwOrderId" | "payment_id"> = {
+  const Item: Omit<adminOrder, "gwOrderId" | "payment_id"> = {
     pk: `order`,
     sk: userEmail + ":" + id,
     user: {
