@@ -57,8 +57,8 @@ app.get("/payments", async (c) => {
   return c.json({
     token: c.req.header("order") as string,
     prefill: {
-      email: Item.email,
-      contact: "+91" + Item.phone,
+      email: Item.user.email,
+      contact: Item.user.phone,
     },
     order_id: res.id,
     description: "order:" + orderToken.id,

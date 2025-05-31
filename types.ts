@@ -67,6 +67,8 @@ interface order {
   total: number;
   gwOrderId: string;
   payment_id: string;
+  refundId?: string;
+  trackingId?: string;
   user: {
     name: string;
     email?: string;

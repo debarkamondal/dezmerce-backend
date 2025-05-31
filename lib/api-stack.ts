@@ -140,6 +140,34 @@ export class ApiStack extends Stack {
         authorizer: this.adminAuthorizer,
       },
       {
+        name: "admin-cancel-order",
+        entry: "lambda/admin/orders.ts",
+        route: "/admin/orders/cancel/{:orderId}",
+        methods: [apigw2.HttpMethod.POST],
+        environment: {
+          DB_TABLE_NAME: props.table.tableName,
+          PAYMENT_GW_KEY_SECRET: config.pgSecret,
+          PAYMENT_GW_KEY_ID: config.pgId,
+        },
+        permissions: {
+          db: "RW" as const,
+        },
+        authorizer: this.adminAuthorizer,
+      },
+      {
+        name: "admin-ship-order",
+        entry: "lambda/admin/orders.ts",
+        route: "/admin/orders/ship/{:orderId}",
+        methods: [apigw2.HttpMethod.POST],
+        environment: {
+          DB_TABLE_NAME: props.table.tableName,
+        },
+        permissions: {
+          db: "W" as const,
+        },
+        authorizer: this.adminAuthorizer,
+      },
+      {
         name: "admin-orders",
         entry: "lambda/admin/orders.ts",
         route: "/admin/orders",
