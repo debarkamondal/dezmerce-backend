@@ -11,7 +11,8 @@ dotenv.config({ path: path.join(__dirname, "..", ".env") });
 
 // Define shared configuration
 const config: SharedConfig = {
-  domainName: process.env.DOMAIN_NAME || "example.com",
+  backendDomainName: process.env.BACKEND_DOMAIN_NAME || "api.example.com",
+  frontendDomainName: process.env.FRONTEND_DOMAIN_NAME || "example.com",
   certArn:
     process.env.CERT_ARN ||
     "arn:aws:acm:region:account:certificate/certificate-id",

@@ -1,5 +1,6 @@
 export interface SharedConfig {
-  domainName: string;
+  backendDomainName: string;
+  frontendDomainName: string;
   certArn: string;
   JWTSecret: string;
   stage: string;

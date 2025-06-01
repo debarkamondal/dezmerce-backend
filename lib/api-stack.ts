@@ -48,12 +48,12 @@ export class ApiStack extends Stack {
     // Create custom domain
     const certificate = acm.Certificate.fromCertificateArn(
       this,
-      `${config.domainName}-certificate`,
+      `${config.backendDomainName}-certificate`,
       config.certArn,
     );
 
-    const customDomain = new apigw2.DomainName(this, config.domainName, {
-      domainName: config.domainName,
+    const customDomain = new apigw2.DomainName(this, config.backendDomainName, {
+      domainName: config.backendDomainName,
       certificate,
     });
 
@@ -67,7 +67,10 @@ export class ApiStack extends Stack {
           mappingKey: config.stage,
         },
         corsPreflight: {
-          allowOrigins: ["http://localhost:3000", "https://www.dkmondal.in"],
+          allowOrigins: [
+            "http://localhost:3000",
+            `https://${config.frontendDomainName}`,
+          ],
           allowMethods: [apigw2.CorsHttpMethod.GET],
         },
       },
@@ -341,7 +344,7 @@ export class ApiStack extends Stack {
     new CfnOutput(this, "ApiUrl", { value: this.httpApi.url! });
     new CfnOutput(this, "CNAME", { value: customDomain.regionalDomainName });
     new CfnOutput(this, "ApiDomainUrl", {
-      value: `https://${config.domainName}/${config.stage}`,
+      value: `https://${config.backendDomainName}/${config.stage}`,
     });
     new CfnOutput(this, "S3URL", {
       value: props.bucket.bucketRegionalDomainName,

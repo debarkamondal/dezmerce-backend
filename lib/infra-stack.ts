@@ -61,7 +61,7 @@ export class InfrastructureStack extends Stack {
             allowedHeaders: ["*"],
             allowedOrigins: [
               "http://localhost:3000",
-              "https://www.dkmondal.in",
+              `https://${config.frontendDomainName}`,
             ],
             allowedMethods: [s3.HttpMethods.PUT, s3.HttpMethods.GET],
             maxAge: 300,
