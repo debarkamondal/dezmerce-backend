@@ -33,6 +33,16 @@ app.get("/payments", async (c) => {
 
   if (!Item)
     return c.json({ status: "error", adminmessage: "Order isn't initiated" });
+  if (Item.gwOrderId)
+    return c.json({
+      token: c.req.header("order") as string,
+      prefill: {
+        email: Item.user.email,
+        contact: Item.user.phone,
+      },
+      order_id: Item.gwOrderId,
+      description: "order:" + orderToken.id,
+    });
 
   const res = await instance.orders.create({
     amount: Item.total * 100,
